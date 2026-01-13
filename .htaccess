@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# Dosya veya klasör varsa direkt eriş
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_FILENAME} !-d
+
+# Teklif Al Sayfası Rewrite Kuralları
+RewriteRule ^teklif-al/([^/]+)/([^/]+)/?$ teklif-al.php?service=$1&location=$2 [L,QSA]
+RewriteRule ^teklif-al/([^/]+)/?$ teklif-al.php?service=$1 [L,QSA]

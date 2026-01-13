@@ -1,0 +1,226 @@
+<?php
+require_once 'config/db.php';
+$pageTitle = "Talep Detayı";
+require_once 'includes/header.php';
+
+if (!isset($_SESSION['user_id'])) {
+    header("Location: login.php");
+    exit;
+}
+
+$userId = $_SESSION['user_id'];
+$demandId = $_GET['id'] ?? null;
+
+if (!$demandId) {
+    header("Location: my-demands.php");
+    exit;
+}
+
+// Talep detaylarını çek (Sadece kendi talebi ise)
+$stmt = $pdo->prepare("
+    SELECT 
+        d.*, 
+        c.name as category_name, 
+        l.city, l.district, l.neighborhood 
+    FROM demands d
+    LEFT JOIN categories c ON d.category_id = c.id
+    LEFT JOIN locations l ON d.location_id = l.id
+    WHERE d.id = ? AND d.user_id = ?
+");
+$stmt->execute([$demandId, $userId]);
+$demand = $stmt->fetch();
+
+if (!$demand) {
+    echo "<div class='max-w-7xl mx-auto px-4 py-12'><div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>Talep bulunamadı veya bu talebi görüntüleme yetkiniz yok.</div></div>";
+    require_once 'includes/footer.php';
+    exit;
+}
+
+// Cevapları Çek
+$stmt = $pdo->prepare("
+    SELECT 
+        da.answer_text, 
+        cq.question_text 
+    FROM demand_answers da
+    LEFT JOIN category_questions cq ON da.question_id = cq.id
+    WHERE da.demand_id = ?
+");
+$stmt->execute([$demandId]);
+$answers = $stmt->fetchAll();
+
+// Teklifleri Çek (Gelecek özellik)
+$stmt = $pdo->prepare("
+    SELECT 
+        o.*, 
+        u.first_name, u.last_name,
+        pd.business_name
+    FROM offers o
+    LEFT JOIN users u ON o.user_id = u.id
+    LEFT JOIN provider_details pd ON u.id = pd.user_id
+    WHERE o.demand_id = ?
+    ORDER BY o.created_at DESC
+");
+$stmt->execute([$demandId]);
+$offers = $stmt->fetchAll();
+
+?>
+
+<main class="max-w-7xl mx-auto px-4 py-12 min-h-[60vh]">
+    <div class="flex items-center gap-4 mb-8">
+        <a href="my-demands.php" class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <h1 class="text-3xl font-black text-slate-800">Talep Detayı</h1>
+    </div>
+
+    <?php if (isset($_GET['status']) && $_GET['status'] == 'success'): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6">
+            <?= htmlspecialchars($_GET['msg'] ?? 'İşlem başarılı.') ?>
+        </div>
+    <?php endif; ?>
+    <?php if (isset($successMsg)): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6"><?= $successMsg ?></div>
+    <?php endif; ?>
+
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        <!-- Sol Kolon: Talep Bilgileri -->
+        <div class="lg:col-span-2 space-y-6">
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider mb-2 inline-block">
+                            <?= htmlspecialchars($demand['category_name']) ?>
+                        </span>
+                        <h2 class="text-xl font-bold text-slate-800"><?= htmlspecialchars($demand['title']) ?></h2>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-xs text-slate-400 mb-1">Durum</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold 
+                            <?= $demand['status'] == 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                               ($demand['status'] == 'approved' ? 'bg-green-100 text-green-700' : 
+                               ($demand['status'] == 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')) ?>">
+                            <?= $demand['status'] == 'pending' ? 'Beklemede' : 
+                               ($demand['status'] == 'approved' ? 'Onaylandı' : 
+                               ($demand['status'] == 'completed' ? 'Tamamlandı' : 'İptal')) ?>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm border-t border-slate-100 pt-4">
+                    <div>
+                        <span class="block text-slate-500 mb-1">Lokasyon</span>
+                        <span class="font-medium text-slate-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">location_on</span>
+                            <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                        </span>
+                    </div>
+                    <div>
+                        <span class="block text-slate-500 mb-1">Oluşturulma Tarihi</span>
+                        <span class="font-medium text-slate-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">event</span>
+                            <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
+                        </span>
+                    </div>
+                </div>
+
+                <div class="mt-6">
+                    <h3 class="font-bold text-slate-800 mb-3">Detaylar</h3>
+                    <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+                        <?php foreach ($answers as $ans): ?>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <span class="text-sm font-medium text-slate-500"><?= htmlspecialchars($ans['question_text']) ?></span>
+                                <span class="text-sm font-bold text-slate-800 sm:col-span-2"><?= htmlspecialchars($ans['answer_text']) ?></span>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Gelen Teklifler -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h3 class="text-lg font-bold text-slate-800 mb-4 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-primary">local_offer</span>
+                    Gelen Teklifler (<?= count($offers) ?>)
+                </h3>
+                
+                <?php if (empty($offers)): ?>
+                    <div class="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
+                        Henüz bu talep için teklif gelmedi. <br>
+                        Hizmet verenler talebini incelediğinde burada tekliflerini göreceksin.
+                    </div>
+                <?php else: ?>
+                    <div class="space-y-4">
+                        <?php foreach ($offers as $offer): ?>
+                            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden transition-all hover:shadow-md group">
+                                <div class="flex justify-between items-start mb-4">
+                                    <div class="flex items-center gap-4">
+                                        <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-lg border-2 border-white shadow-sm group-hover:border-primary/20 transition-colors">
+                                            <?= mb_substr($offer['first_name'], 0, 1) . mb_substr($offer['last_name'], 0, 1) ?>
+                                        </div>
+                                        <div>
+                                            <h4 class="font-bold text-slate-800 text-lg"><?= htmlspecialchars($offer['business_name'] ?: $offer['first_name'] . ' ' . $offer['last_name']) ?></h4>
+                                            <div class="flex items-center gap-1 text-xs text-slate-500">
+                                                <span class="material-symbols-outlined text-[14px] text-yellow-500 fill-1">star</span>
+                                                <span>4.9 (24 Değerlendirme)</span>
+                                                <span class="mx-1">•</span>
+                                                <span class="text-green-600 font-medium bg-green-50 px-1.5 py-0.5 rounded">Onaylı</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-black text-primary"><?= number_format($offer['price'], 2, ',', '.') ?> ₺</div>
+                                        <span class="text-xs text-slate-400"><?= date('d.m.Y', strtotime($offer['created_at'])) ?></span>
+                                    </div>
+                                </div>
+                                <p class="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl mb-4 line-clamp-2 border border-slate-100">
+                                    <?= nl2br(htmlspecialchars($offer['message'])) ?>
+                                </p>
+                                <div class="flex justify-end gap-3">
+                                    <a href="offer-details.php?id=<?= $offer['id'] ?>" class="px-5 py-2.5 text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-2 transition-colors">
+                                        <span class="material-symbols-outlined text-sm">visibility</span> İncele
+                                    </a>
+                                    <?php if ($offer['status'] === 'accepted'): ?>
+                                        <span class="px-5 py-2.5 text-sm font-bold text-green-700 bg-green-100 rounded-xl border border-green-200">Kabul Edildi</span>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+            </div>
+        </div>
+
+        <!-- Sağ Kolon: Bilgi -->
+        <div class="space-y-6">
+            <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100">
+                <h4 class="font-bold text-blue-800 mb-2 flex items-center gap-2">
+                    <span class="material-symbols-outlined">info</span>
+                    Bilgilendirme
+                </h4>
+                <p class="text-sm text-blue-700 leading-relaxed">
+                    Talebini oluşturduğun için teşekkürler! İlgili hizmet verenlere bildirim gönderdik. Genellikle 24 saat içinde ilk teklifler gelmeye başlar.
+                </p>
+            </div>
+            
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <h4 class="font-bold text-slate-800 mb-4">Süreç Nasıl İşler?</h4>
+                <ul class="space-y-4">
+                    <li class="flex gap-3 text-sm text-slate-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-green-100 text-green-600 rounded-full flex items-center justify-center font-bold text-xs">1</span>
+                        <span>Talebin onaylandı ve hizmet verenlere iletildi.</span>
+                    </li>
+                    <li class="flex gap-3 text-sm text-slate-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-bold text-xs">2</span>
+                        <span>Gelen teklifleri incele ve karşılaştır.</span>
+                    </li>
+                    <li class="flex gap-3 text-sm text-slate-600">
+                        <span class="flex-shrink-0 w-6 h-6 bg-slate-100 text-slate-500 rounded-full flex items-center justify-center font-bold text-xs">3</span>
+                        <span>Sana en uygun uzmanı seç ve işi başlat.</span>
+                    </li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</main>
+
+<?php require_once 'includes/footer.php'; ?>
