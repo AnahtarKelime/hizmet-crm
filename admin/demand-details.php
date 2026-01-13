@@ -38,6 +38,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_offer_price'])
     $successMsg = "Tahmini maliyet güncellendi.";
 }
 
+// Arşivleme İşlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_archive'])) {
+    $newArchiveStatus = $_POST['is_archived'] == 1 ? 0 : 1;
+    $stmt = $pdo->prepare("UPDATE demands SET is_archived = ? WHERE id = ?");
+    $stmt->execute([$newArchiveStatus, $demandId]);
+    $successMsg = $newArchiveStatus ? "Talep arşivlendi." : "Talep arşivden çıkarıldı.";
+}
+
 // Talep Detaylarını Çek
 $stmt = $pdo->prepare("
     SELECT 
@@ -171,6 +179,17 @@ $answers = $stmt->fetchAll();
                     <p class="text-xs text-slate-400 mt-1">Bu fiyat hizmet verenlere referans olarak gösterilebilir.</p>
                 </div>
                 <button type="submit" class="w-full bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold py-2 rounded-lg transition-colors text-sm">Fiyatı Güncelle</button>
+            </form>
+
+            <hr class="my-6 border-slate-100">
+
+            <form method="POST" class="space-y-4">
+                <input type="hidden" name="toggle_archive" value="1">
+                <input type="hidden" name="is_archived" value="<?= $demand['is_archived'] ?>">
+                <button type="submit" class="w-full <?= $demand['is_archived'] ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-slate-600 hover:bg-slate-700' ?> text-white font-bold py-2 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                    <span class="material-symbols-outlined text-lg"><?= $demand['is_archived'] ? 'unarchive' : 'archive' ?></span>
+                    <?= $demand['is_archived'] ? 'Arşivden Çıkar' : 'Talebi Arşivle' ?>
+                </button>
             </form>
         </div>
     </div>

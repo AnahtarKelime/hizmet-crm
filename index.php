@@ -134,7 +134,7 @@ require_once 'includes/header.php';
             <h3 class="text-4xl font-black text-white mb-8">İşini büyütmek mi istiyorsun?</h3>
             <p class="text-white/80 mb-12 text-xl font-medium"><?= htmlspecialchars($siteTitle) ?> ile her gün binlerce yeni müşteriye ulaş. Hemen ücretsiz profilini oluştur ve teklif vermeye baş.</p>
             <div class="flex flex-col sm:flex-row justify-center gap-6">
-                <button class="bg-accent hover:bg-white text-primary font-black px-12 py-5 rounded-2xl transition-all text-xl shadow-2xl" onclick="window.location.href='provider/buy-package.php'">
+                <button class="bg-accent hover:bg-white text-primary font-black px-12 py-5 rounded-2xl transition-all text-xl shadow-2xl" onclick="window.location.href='provider/apply.php'">
                     Hizmet Veren Ol
                 </button>
                 <button class="bg-white/10 hover:bg-white/20 text-white font-black px-12 py-5 rounded-2xl transition-all text-xl border border-white/20" onclick="window.location.href='nasil-calisir.php'">

@@ -15,6 +15,9 @@ DROP TABLE IF EXISTS `provider_details`;
 DROP TABLE IF EXISTS `users`;
 DROP TABLE IF EXISTS `settings`;
 DROP TABLE IF EXISTS `subscription_packages`;
+DROP TABLE IF EXISTS `provider_service_categories`;
+DROP TABLE IF EXISTS `provider_service_areas`;
+DROP TABLE IF EXISTS `provider_documents`;
 
 -- 2. TABLOLARI YENİDEN OLUŞTUR (CREATE)
 
@@ -44,6 +47,7 @@ CREATE TABLE `provider_details` (
   `bio` TEXT,
   `subscription_type` ENUM('free', 'premium') DEFAULT 'free',
   `subscription_ends_at` DATETIME DEFAULT NULL,
+  `application_status` ENUM('none', 'pending', 'approved', 'rejected', 'incomplete') DEFAULT 'none',
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -104,6 +108,7 @@ CREATE TABLE `demands` (
   `details` TEXT,
   `status` ENUM('pending', 'approved', 'completed', 'cancelled') DEFAULT 'pending',
   `approved_at` DATETIME DEFAULT NULL,
+  `is_archived` TINYINT(1) DEFAULT 0,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
@@ -163,6 +168,8 @@ CREATE TABLE `transactions` (
   `amount` DECIMAL(10,2) NOT NULL,
   `type` ENUM('deposit', 'subscription_payment', 'lead_fee', 'refund') NOT NULL,
   `description` VARCHAR(255) DEFAULT NULL,
+  `status` ENUM('pending', 'approved', 'rejected') DEFAULT 'approved',
+  `package_id` INT(11) UNSIGNED DEFAULT NULL,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   CONSTRAINT `fk_transaction_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
@@ -188,6 +195,38 @@ CREATE TABLE `subscription_packages` (
   `is_active` TINYINT(1) DEFAULT 1,
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- PROVIDER HİZMET KATEGORİLERİ
+CREATE TABLE `provider_service_categories` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT(11) UNSIGNED NOT NULL,
+  `category_id` INT(11) UNSIGNED NOT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `user_category` (`user_id`, `category_id`),
+  CONSTRAINT `fk_psc_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `fk_psc_category` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- PROVIDER HİZMET BÖLGELERİ
+CREATE TABLE `provider_service_areas` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT(11) UNSIGNED NOT NULL,
+  `city` VARCHAR(100) NOT NULL,
+  `districts` TEXT DEFAULT NULL COMMENT 'Virgülle ayrılmış ilçeler veya NULL (Tüm şehir)',
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_psa_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- PROVIDER EVRAKLARI
+CREATE TABLE `provider_documents` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `user_id` INT(11) UNSIGNED NOT NULL,
+  `document_type` VARCHAR(50) NOT NULL,
+  `file_path` VARCHAR(255) NOT NULL,
+  `uploaded_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  CONSTRAINT `fk_pd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- 3. VERİLERİ EKLE (INSERT)

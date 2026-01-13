@@ -3,7 +3,7 @@ require_once '../config/db.php';
 session_start();
 
 // Sadece Provider'lar satın alabilir
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'provider') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['user_role'], ['provider', 'admin'])) {
     die("Bu işlemi yapmak için 'Hizmet Veren' hesabıyla giriş yapmalısınız.");
 }
 
@@ -32,34 +32,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' || $_SERVER['REQUEST_METHOD'] === 'GET
         $methodText = ($paymentMethod === 'bank') ? 'Havale/EFT' : 'Kredi Kartı';
         $description = $package['name'] . ' Satın Alımı (' . $methodText . ')';
 
+        // Durum Belirleme: Banka ise 'pending', Kredi Kartı ise 'approved'
+        $status = ($paymentMethod === 'bank') ? 'pending' : 'approved';
+
         // Transaction Başlat
         $pdo->beginTransaction();
 
-        // 1. Ödeme Kaydı (Simülasyon)
-        $stmt = $pdo->prepare("INSERT INTO transactions (user_id, amount, type, description) VALUES (?, ?, 'subscription_payment', ?)");
-        $stmt->execute([$userId, $package['price'], $description]);
+        // 1. Ödeme Kaydı
+        $stmt = $pdo->prepare("INSERT INTO transactions (user_id, amount, type, description, status, package_id) VALUES (?, ?, 'subscription_payment', ?, ?, ?)");
+        $stmt->execute([$userId, $package['price'], $description, $status, $package['id']]);
 
-        // 2. Kullanıcı Aboneliğini Güncelle
-        // Bitiş tarihini hesapla (Şu an + Paket Süresi)
-        $endDate = date('Y-m-d H:i:s', strtotime("+{$package['duration_days']} days"));
-        
-        // Paket tipini belirle (Fiyata göre basit mantık: 0 ise free, değilse premium)
-        $subType = ($package['price'] > 0) ? 'premium' : 'free';
+        // 2. Eğer Kredi Kartı ise (Otomatik Onay) Aboneliği Hemen Başlat
+        if ($status === 'approved') {
+            // Mevcut abonelik durumunu kontrol et
+            $stmtCheck = $pdo->prepare("SELECT subscription_ends_at, remaining_offer_credit FROM provider_details WHERE user_id = ?");
+            $stmtCheck->execute([$userId]);
+            $currentDetails = $stmtCheck->fetch();
 
-        // Provider detaylarını güncelle veya ekle
-        $stmt = $pdo->prepare("
-            INSERT INTO provider_details (user_id, subscription_type, subscription_ends_at) 
-            VALUES (?, ?, ?) 
-            ON DUPLICATE KEY UPDATE 
-                subscription_type = VALUES(subscription_type), 
-                subscription_ends_at = VALUES(subscription_ends_at)
-        ");
-        $stmt->execute([$userId, $subType, $endDate]);
+            // Bitiş tarihini hesapla (Mevcut süre varsa üstüne ekle)
+            $currentEndDate = ($currentDetails && $currentDetails['subscription_ends_at'] && new DateTime($currentDetails['subscription_ends_at']) > new DateTime()) 
+                ? $currentDetails['subscription_ends_at'] 
+                : date('Y-m-d H:i:s');
+            
+            $endDate = date('Y-m-d H:i:s', strtotime($currentEndDate . " +{$package['duration_days']} days"));
+            
+            // Paket tipini belirle
+            $subType = ($package['price'] > 0) ? 'premium' : 'free';
+            $offerCredit = $package['offer_credit'];
+
+            // Provider detaylarını güncelle (Krediyi de üstüne ekle)
+            $stmt = $pdo->prepare("
+                INSERT INTO provider_details (user_id, subscription_type, subscription_ends_at, remaining_offer_credit) 
+                VALUES (?, ?, ?, ?) 
+                ON DUPLICATE KEY UPDATE 
+                    subscription_type = VALUES(subscription_type), 
+                    subscription_ends_at = VALUES(subscription_ends_at),
+                    remaining_offer_credit = IF(remaining_offer_credit = -1 OR VALUES(remaining_offer_credit) = -1, -1, remaining_offer_credit + VALUES(remaining_offer_credit))
+            ");
+            $stmt->execute([$userId, $subType, $endDate, $offerCredit]);
+            
+            $msg = "Paket başarıyla tanımlandı! Bitiş Tarihi: $endDate";
+        } else {
+            $msg = "Ödeme bildiriminiz alındı. Yönetici onayından sonra paketiniz aktifleşecektir.";
+        }
 
         $pdo->commit();
 
-        // Başarılı sayfasına yönlendir (veya dashboard)
-        echo "<script>alert('Paket başarıyla tanımlandı! Bitiş Tarihi: $endDate'); window.location.href='../index.php';</script>";
+        // Yönlendirme
+        echo "<script>alert('$msg'); window.location.href='../index.php';</script>";
 
     } catch (Exception $e) {
         $pdo->rollBack();

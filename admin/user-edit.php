@@ -25,6 +25,21 @@ if (!$user) {
     exit;
 }
 
+// Eğer kullanıcı hizmet veren ise son tekliflerini çek
+$recentOffers = [];
+if ($user['role'] === 'provider') {
+    $stmtOffers = $pdo->prepare("
+        SELECT o.*, d.title as demand_title, d.id as demand_id, d.status as demand_status
+        FROM offers o
+        JOIN demands d ON o.demand_id = d.id
+        WHERE o.user_id = ?
+        ORDER BY o.created_at DESC
+        LIMIT 20
+    ");
+    $stmtOffers->execute([$userId]);
+    $recentOffers = $stmtOffers->fetchAll();
+}
+
 // Güncelleme İşlemi
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -146,6 +161,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             <button type="submit" class="px-8 py-3 rounded-lg bg-indigo-600 text-white font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-200 transition-all">Değişiklikleri Kaydet</button>
         </div>
     </form>
+
+    <?php if ($user['role'] === 'provider'): ?>
+    <!-- Hizmet Veren Teklif Geçmişi -->
+    <div class="mt-10">
+        <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-600">history_edu</span>
+            Son Verilen Teklifler (Son 20)
+        </h3>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4">Talep</th>
+                        <th class="px-6 py-4">Teklif Tutarı</th>
+                        <th class="px-6 py-4">Mesaj</th>
+                        <th class="px-6 py-4">Tarih</th>
+                        <th class="px-6 py-4">Durum</th>
+                        <th class="px-6 py-4 text-right">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($recentOffers)): ?>
+                        <tr>
+                            <td colspan="6" class="px-6 py-8 text-center text-slate-500">Bu kullanıcı henüz hiç teklif vermemiş.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach($recentOffers as $offer): ?>
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4">
+                                <div class="font-medium text-slate-800 truncate max-w-[200px]" title="<?= htmlspecialchars($offer['demand_title']) ?>">
+                                    <?= htmlspecialchars($offer['demand_title']) ?>
+                                </div>
+                                <div class="text-xs text-slate-400">ID: #<?= $offer['demand_id'] ?></div>
+                            </td>
+                            <td class="px-6 py-4 font-bold text-slate-700">
+                                <?= number_format($offer['price'], 2, ',', '.') ?> ₺
+                            </td>
+                            <td class="px-6 py-4">
+                                <div class="text-xs text-slate-500 truncate max-w-[250px]" title="<?= htmlspecialchars($offer['message']) ?>">
+                                    <?= htmlspecialchars($offer['message']) ?>
+                                </div>
+                            </td>
+                            <td class="px-6 py-4 text-xs text-slate-500">
+                                <?= date('d.m.Y H:i', strtotime($offer['created_at'])) ?>
+                            </td>
+                            <td class="px-6 py-4">
+                                <?php
+                                $statusClass = match($offer['status']) {
+                                    'accepted' => 'bg-green-100 text-green-700',
+                                    'rejected' => 'bg-red-100 text-red-700',
+                                    default => 'bg-yellow-100 text-yellow-700'
+                                };
+                                $statusLabel = match($offer['status']) {
+                                    'accepted' => 'Kabul Edildi',
+                                    'rejected' => 'Reddedildi',
+                                    default => 'Beklemede'
+                                };
+                                ?>
+                                <span class="px-2 py-1 rounded text-xs font-bold <?= $statusClass ?>"><?= $statusLabel ?></span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="../offer-details.php?id=<?= $offer['id'] ?>" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-3 py-1.5 rounded transition-colors">
+                                    Görüntüle
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once 'includes/footer.php'; ?>

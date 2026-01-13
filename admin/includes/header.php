@@ -74,6 +74,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">pending_actions</span>
                 Cevap Bekleyenler
             </a>
+            <a href="demands-archived.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'demands-archived.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">archive</span>
+                Arşivli Talepler
+            </a>
             <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
                 <span class="material-symbols-outlined">report_problem</span>
                 Sorun Bildirilenler
@@ -86,11 +90,11 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">group</span>
                 Tüm Kullanıcılar
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="providers.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'provider') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">engineering</span>
                 Hizmet Verenler
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="applications.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'applications.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">person_add</span>
                 Başvurular
             </a>
@@ -110,7 +114,7 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">payments</span>
                 Ödeme Ayarları
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="payments.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'payments.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">receipt_long</span>
                 Ödeme Geçmişi
             </a>

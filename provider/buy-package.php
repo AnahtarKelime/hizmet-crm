@@ -68,16 +68,23 @@ try {
 
                 <?php
                 // Yönlendirme Mantığı
-                if (isset($_SESSION['user_id']) && $_SESSION['user_role'] === 'provider') {
-                    // Giriş yapmış provider -> Ödeme sayfasına
-                    $actionUrl = "payment.php";
-                    $method = "POST";
-                    $inputName = "package_id";
+                if (isset($_SESSION['user_id'])) {
+                    if ($_SESSION['user_role'] === 'provider' || $_SESSION['user_role'] === 'admin') {
+                        // Giriş yapmış provider -> Ödeme sayfasına
+                        $actionUrl = "payment.php";
+                        $method = "POST";
+                        $inputName = "package_id";
+                    } else {
+                        // Giriş yapmış ama provider değil (Müşteri) -> Başvuru sayfasına yönlendir
+                        $actionUrl = "apply.php"; 
+                        $method = "GET";
+                        $inputName = "package_id"; // apply.php kullanmasa da form yapısı bozulmasın
+                    }
                 } else {
-                    // Giriş yapmamış veya müşteri -> Kayıt sayfasına (Paket ID ile)
-                    $actionUrl = "../register.php?type=provider";
+                    // Giriş yapmamış -> Kayıt sayfasına
+                    $actionUrl = "../register.php";
                     $method = "GET";
-                    $inputName = "package_id"; // GET parametresi olarak eklenecek (form method GET ise)
+                    $inputName = "package_id";
                 }
                 ?>
 

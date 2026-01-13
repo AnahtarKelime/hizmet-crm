@@ -8,6 +8,17 @@ $userName = $_SESSION['user_name'] ?? 'Hesabım';
 // Linkler için kök dizin öneki (Varsayılan boş)
 $pathPrefix = $pathPrefix ?? '';
 
+// Kullanıcı Rolünü ve Bilgilerini Güncelle (Session Senkronizasyonu)
+if ($isLoggedIn && isset($pdo)) {
+    $stmt = $pdo->prepare("SELECT role, first_name, last_name FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $currentUser = $stmt->fetch();
+    if ($currentUser) {
+        $_SESSION['user_role'] = $currentUser['role'];
+        $_SESSION['user_name'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
+    }
+}
+
 // Site Ayarlarını Çek
 $siteSettings = [];
 if (isset($pdo)) {
@@ -87,7 +98,7 @@ $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul
                             <!-- Mobile Nav Links (Sadece mobilde görünür) -->
                             <div class="lg:hidden mb-8 pb-8 border-b border-slate-100 dark:border-slate-800 space-y-4">
                                 <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>index.php">Hizmetleri Keşfet</a>
-                                <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>provider/buy-package.php">Hizmet Veren Ol</a>
+                                <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>provider/apply.php">Hizmet Veren Ol</a>
                                 <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>nasil-calisir.php">Nasıl Çalışır?</a>
                             </div>
                             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-10">
@@ -184,7 +195,7 @@ $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul
             </div>
             <nav class="hidden lg:flex items-center gap-8">
                 <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>index.php">Hizmetleri Keşfet</a>
-                <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>provider/buy-package.php">Hizmet Veren Ol</a>
+                <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>provider/apply.php">Hizmet Veren Ol</a>
                 <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>nasil-calisir.php">Nasıl Çalışır?</a>
             </nav>
             <div class="flex items-center gap-3">

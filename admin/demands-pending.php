@@ -12,7 +12,7 @@ $sql = "SELECT
         LEFT JOIN users u ON d.user_id = u.id
         LEFT JOIN categories c ON d.category_id = c.id
         LEFT JOIN locations l ON d.location_id = l.id
-        WHERE d.status = 'pending'
+        WHERE d.status = 'pending' AND d.is_archived = 0
         ORDER BY d.created_at DESC";
 
 try {

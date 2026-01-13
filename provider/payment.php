@@ -3,7 +3,7 @@ require_once '../config/db.php';
 
 // Oturum kontrolü
 session_start();
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'provider') {
+if (!isset($_SESSION['user_id']) || !in_array($_SESSION['user_role'], ['provider', 'admin'])) {
     header("Location: ../login.php");
     exit;
 }

@@ -1,9 +1,32 @@
 <?php
 require_once '../config/db.php';
-require_once 'includes/header.php';
 
 $id = $_GET['id'] ?? null;
-$package = ['name' => '', 'price' => '', 'duration_days' => 30, 'features' => '', 'is_active' => 1];
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $name = $_POST['name'];
+    $price = $_POST['price'];
+    $duration = $_POST['duration_days'];
+    $offerCredit = $_POST['offer_credit'];
+    $isActive = isset($_POST['is_active']) ? 1 : 0;
+    
+    // Textarea'dan gelen veriyi satır satır bölüp JSON yap
+    $featuresList = array_filter(array_map('trim', explode("\n", $_POST['features'])));
+    $featuresJson = json_encode(array_values($featuresList), JSON_UNESCAPED_UNICODE);
+
+    if ($id) {
+        $stmt = $pdo->prepare("UPDATE subscription_packages SET name=?, price=?, duration_days=?, offer_credit=?, features=?, is_active=? WHERE id=?");
+        $stmt->execute([$name, $price, $duration, $offerCredit, $featuresJson, $isActive, $id]);
+    } else {
+        $stmt = $pdo->prepare("INSERT INTO subscription_packages (name, price, duration_days, offer_credit, features, is_active) VALUES (?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $price, $duration, $offerCredit, $featuresJson, $isActive]);
+    }
+    header("Location: subscriptions.php");
+    exit;
+}
+
+require_once 'includes/header.php';
+
+$package = ['name' => '', 'price' => '', 'duration_days' => 30, 'offer_credit' => 0, 'features' => '', 'is_active' => 1];
 
 if ($id) {
     $stmt = $pdo->prepare("SELECT * FROM subscription_packages WHERE id = ?");
@@ -15,27 +38,6 @@ if ($id) {
         $featuresArray = json_decode($package['features'], true);
         $package['features'] = is_array($featuresArray) ? implode("\n", $featuresArray) : '';
     }
-}
-
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $name = $_POST['name'];
-    $price = $_POST['price'];
-    $duration = $_POST['duration_days'];
-    $isActive = isset($_POST['is_active']) ? 1 : 0;
-    
-    // Textarea'dan gelen veriyi satır satır bölüp JSON yap
-    $featuresList = array_filter(array_map('trim', explode("\n", $_POST['features'])));
-    $featuresJson = json_encode(array_values($featuresList), JSON_UNESCAPED_UNICODE);
-
-    if ($id) {
-        $stmt = $pdo->prepare("UPDATE subscription_packages SET name=?, price=?, duration_days=?, features=?, is_active=? WHERE id=?");
-        $stmt->execute([$name, $price, $duration, $featuresJson, $isActive, $id]);
-    } else {
-        $stmt = $pdo->prepare("INSERT INTO subscription_packages (name, price, duration_days, features, is_active) VALUES (?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $price, $duration, $featuresJson, $isActive]);
-    }
-    header("Location: subscriptions.php");
-    exit;
 }
 ?>
 
@@ -54,7 +56,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <input type="text" name="name" value="<?= htmlspecialchars($package['name']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Örn: Profesyonel Paket">
             </div>
 
-            <div class="grid grid-cols-2 gap-6">
+            <div class="grid grid-cols-3 gap-6">
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">Fiyat (TL)</label>
                     <input type="number" step="0.01" name="price" value="<?= htmlspecialchars($package['price']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
@@ -62,6 +64,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">Süre (Gün)</label>
                     <input type="number" name="duration_days" value="<?= htmlspecialchars($package['duration_days']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Teklif Kredisi</label>
+                    <input type="number" name="offer_credit" value="<?= htmlspecialchars($package['offer_credit']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-500 mt-1">Sınırsız için -1 girin.</p>
                 </div>
             </div>
 

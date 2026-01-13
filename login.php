@@ -7,11 +7,13 @@ if (isset($_SESSION['user_id'])) {
     exit;
 }
 
+$redirect = $_GET['redirect'] ?? null;
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
+    $redirectUrl = $_POST['redirect'] ?? null;
 
     if (empty($email) || empty($password)) {
         $error = 'Lütfen e-posta ve şifrenizi girin.';
@@ -25,8 +27,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
             $_SESSION['user_role'] = $user['role'];
             
-            header("Location: index.php");
-            exit;
+            if ($redirectUrl) {
+                header("Location: " . $redirectUrl);
+                exit;
+            } else {
+                header("Location: index.php");
+                exit;
+            }
         } else {
             $error = 'E-posta adresi veya şifre hatalı.';
         }
@@ -57,6 +64,9 @@ require_once 'includes/header.php';
         <?php endif; ?>
 
         <form class="mt-8 space-y-6" action="login.php" method="POST">
+            <?php if($redirect): ?>
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
+            <?php endif; ?>
             <div class="space-y-4 rounded-md shadow-sm">
                 <div>
                     <label for="email" class="block text-sm font-medium text-slate-700 mb-1">E-posta Adresi</label>

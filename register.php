@@ -11,6 +11,7 @@ $type = $_GET['type'] ?? 'customer';
 $role = ($type === 'provider') ? 'provider' : 'customer';
 $pageTitle = ($role === 'provider') ? 'Hizmet Veren Kaydı' : 'Kayıt Ol';
 $packageId = $_GET['package_id'] ?? null; // Paketten geliyorsa
+$redirect = $_GET['redirect'] ?? null; // Yönlendirme varsa
 
 $error = '';
 
@@ -23,6 +24,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $passwordConfirm = $_POST['password_confirm'] ?? '';
     $roleInput = $_POST['role'] ?? 'customer';
     $selectedPackageId = $_POST['package_id'] ?? null;
+    $redirectUrl = $_POST['redirect'] ?? null;
 
     // Basit validasyon
     if (empty($firstName) || empty($lastName) || empty($email) || empty($password)) {
@@ -63,6 +65,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($roleInput === 'provider' && $selectedPackageId) {
                     header("Location: provider/process-payment.php?package_id=" . $selectedPackageId);
                     exit;
+                } elseif ($redirectUrl) {
+                    header("Location: " . $redirectUrl);
+                    exit;
                 } else {
                     header("Location: index.php");
                     exit;
@@ -102,6 +107,9 @@ require_once 'includes/header.php';
             <input type="hidden" name="role" value="<?= $role ?>">
             <?php if($packageId): ?>
                 <input type="hidden" name="package_id" value="<?= htmlspecialchars($packageId) ?>">
+            <?php endif; ?>
+            <?php if($redirect): ?>
+                <input type="hidden" name="redirect" value="<?= htmlspecialchars($redirect) ?>">
             <?php endif; ?>
             
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
