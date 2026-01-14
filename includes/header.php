@@ -38,6 +38,13 @@ if (isset($pdo)) {
 }
 $siteTitle = $siteSettings['site_title'] ?? 'iyiteklif';
 $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul';
+
+// Menüleri Çek
+$headerMenuItems = [];
+if (isset($pdo)) {
+    $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'header' AND is_active = 1 ORDER BY sort_order ASC");
+    $headerMenuItems = $stmt->fetchAll();
+}
 ?>
 <!DOCTYPE html>
 <html class="light" lang="tr">
@@ -199,9 +206,24 @@ $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul
                 </div>
             </div>
             <nav class="hidden lg:flex items-center gap-8">
-                <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>index.php">Hizmetleri Keşfet</a>
-                <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>provider/apply.php">Hizmet Veren Ol</a>
-                <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix ?>nasil-calisir.php">Nasıl Çalışır?</a>
+                <?php foreach ($headerMenuItems as $item): ?>
+                    <?php
+                        $show = false;
+                        $userRole = $_SESSION['user_role'] ?? 'guest';
+                        if ($item['visibility'] === 'all') {
+                            $show = true;
+                        } elseif ($item['visibility'] === 'guest' && !$isLoggedIn) {
+                            $show = true;
+                        } elseif ($item['visibility'] === 'customer' && $isLoggedIn && $userRole === 'customer') {
+                            $show = true;
+                        } elseif ($item['visibility'] === 'provider' && $isLoggedIn && $userRole === 'provider') {
+                            $show = true;
+                        }
+                    ?>
+                    <?php if ($show): ?>
+                        <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix . htmlspecialchars($item['url']) ?>" target="<?= htmlspecialchars($item['target']) ?>"><?= htmlspecialchars($item['title']) ?></a>
+                    <?php endif; ?>
+                <?php endforeach; ?>
             </nav>
             <div class="flex items-center gap-3">
                 <?php if ($isLoggedIn): ?>

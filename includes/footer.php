@@ -1,3 +1,11 @@
+<?php
+// Footer menülerini çek
+$footerMenuItems = [];
+if (isset($pdo)) {
+    $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'footer' AND is_active = 1 ORDER BY sort_order ASC");
+    $footerMenuItems = $stmt->fetchAll();
+}
+?>
 <footer class="bg-primary text-white pt-24 pb-12">
     <div class="max-w-7xl mx-auto px-4">
         <div class="grid md:grid-cols-4 gap-12 mb-20">
@@ -26,11 +34,24 @@
             <div>
                 <h6 class="font-black mb-8 text-accent uppercase text-sm tracking-widest">Kurumsal</h6>
                 <ul class="space-y-4 text-slate-300 text-sm font-medium">
-                    <li><a class="hover:text-accent transition-colors" href="#">Hakkımızda</a></li>
-                    <li><a class="hover:text-accent transition-colors" href="#">Hizmet Veren Ol</a></li>
-                    <li><a class="hover:text-accent transition-colors" href="#">Kullanım Koşulları</a></li>
-                    <li><a class="hover:text-accent transition-colors" href="#">Gizlilik Politikası</a></li>
-                    <li><a class="hover:text-accent transition-colors" href="#">İletişim</a></li>
+                    <?php foreach ($footerMenuItems as $item): ?>
+                        <?php
+                            $show = false;
+                            $userRole = $_SESSION['user_role'] ?? 'guest';
+                            if ($item['visibility'] === 'all') {
+                                $show = true;
+                            } elseif ($item['visibility'] === 'guest' && !$isLoggedIn) {
+                                $show = true;
+                            } elseif ($item['visibility'] === 'customer' && $isLoggedIn && $userRole === 'customer') {
+                                $show = true;
+                            } elseif ($item['visibility'] === 'provider' && $isLoggedIn && $userRole === 'provider') {
+                                $show = true;
+                            }
+                        ?>
+                        <?php if ($show): ?>
+                            <li><a class="hover:text-accent transition-colors" href="<?= htmlspecialchars($item['url']) ?>" target="<?= htmlspecialchars($item['target']) ?>"><?= htmlspecialchars($item['title']) ?></a></li>
+                        <?php endif; ?>
+                    <?php endforeach; ?>
                 </ul>
             </div>
             <div>
