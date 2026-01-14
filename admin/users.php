@@ -15,8 +15,28 @@ if (isset($_GET['delete'])) {
     }
 }
 
+// Filtreleme Parametreleri
+$where = [];
+$params = [];
+
+if (!empty($_GET['search'])) {
+    $search = "%" . $_GET['search'] . "%";
+    $where[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ?)";
+    $params[] = $search;
+    $params[] = $search;
+    $params[] = $search;
+}
+
 // Kullanıcıları Çek
-$users = $pdo->query("SELECT * FROM users ORDER BY created_at DESC")->fetchAll();
+$sql = "SELECT * FROM users";
+if (!empty($where)) {
+    $sql .= " WHERE " . implode(" AND ", $where);
+}
+$sql .= " ORDER BY created_at DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$users = $stmt->fetchAll();
 ?>
 
 <div class="flex justify-between items-center mb-6">
@@ -29,6 +49,21 @@ $users = $pdo->query("SELECT * FROM users ORDER BY created_at DESC")->fetchAll()
 <?php if (isset($error)): ?>
     <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-4"><?= $error ?></div>
 <?php endif; ?>
+
+<!-- Filtreleme Alanı -->
+<div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-3">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Kullanıcı Ara</label>
+            <input type="text" name="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ad, Soyad veya E-posta...">
+        </div>
+        <div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-lg">filter_list</span> Filtrele
+            </button>
+        </div>
+    </form>
+</div>
 
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
     <table class="w-full text-left text-sm text-slate-600">

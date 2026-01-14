@@ -24,18 +24,18 @@ if ($provider && $provider['subscription_ends_at'] && new DateTime($provider['su
 }
 
 // 2. Hizmet Verenin Kategorilerini Çek
-$stmt = $pdo->prepare("SELECT category_id FROM provider_service_categories WHERE user_id = ?");
+$stmt = $pdo->prepare("SELECT category_id FROM provider_service_categories WHERE user_id = ? LIMIT 1");
 $stmt->execute([$userId]);
-$myCategories = $stmt->fetchAll(PDO::FETCH_COLUMN);
+$myCategoryId = $stmt->fetchColumn();
 
 // 3. Hizmet Verenin Bölgelerini Çek
-$stmt = $pdo->prepare("SELECT city, districts FROM provider_service_areas WHERE user_id = ?");
+$stmt = $pdo->prepare("SELECT city, districts FROM provider_service_areas WHERE user_id = ? LIMIT 1");
 $stmt->execute([$userId]);
-$myAreas = $stmt->fetchAll();
+$myArea = $stmt->fetch();
 
 // 4. Uygun Talepleri (Leads) Bul (Algoritma)
 $leads = [];
-if ($isSubscribed && $hasCredit && !empty($myCategories)) {
+if ($isSubscribed && $hasCredit && $myCategoryId && $myArea) {
     
     // Temel Sorgu: Onaylanmış, Arşivlenmemiş ve Benim Kategorimdeki Talepler
     $sql = "SELECT d.*, c.name as category_name, l.city, l.district, l.neighborhood 
@@ -44,18 +44,26 @@ if ($isSubscribed && $hasCredit && !empty($myCategories)) {
             JOIN locations l ON d.location_id = l.id
             WHERE d.status = 'approved' 
             AND d.is_archived = 0
-            AND d.category_id IN (" . implode(',', $myCategories) . ")";
+            AND d.category_id = :category_id
+            AND l.city = :city";
+    
+    $params = [
+        'category_id' => $myCategoryId,
+        'city' => $myArea['city']
+    ];
 
-    // Bölge Filtresi (Basit Eşleştirme: Şehir eşleşmeli)
-    // Daha gelişmiş filtreleme için ilçeler de kontrol edilebilir.
-    if (!empty($myAreas)) {
-        $cityList = array_map(function($a) { return "'" . $a['city'] . "'"; }, $myAreas);
-        $sql .= " AND l.city IN (" . implode(',', $cityList) . ")";
+    // Eğer hizmet veren belirli bir ilçe seçmişse, sadece o ilçedeki işleri göster
+    // Eğer 'districts' boşsa veya NULL ise tüm şehri kapsar (filtre eklenmez)
+    if (!empty($myArea['districts'])) {
+        $sql .= " AND l.district = :district";
+        $params['district'] = $myArea['districts'];
     }
 
     $sql .= " ORDER BY d.created_at DESC";
 
-    $leads = $pdo->query($sql)->fetchAll();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $leads = $stmt->fetchAll();
 }
 
 $pageTitle = "İş Fırsatları";

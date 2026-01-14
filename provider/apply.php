@@ -51,6 +51,7 @@ if ($status === 'pending') {
 // Verileri Çek
 $categories = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC")->fetchAll();
 $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+$districts = $pdo->query("SELECT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
 ?>
 
 <main class="max-w-[1200px] mx-auto w-full px-4 md:px-10 py-8">
@@ -83,7 +84,7 @@ $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->
                     <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                         <?php foreach ($categories as $cat): ?>
                         <label class="flex flex-col gap-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-4 cursor-pointer transition-all hover:shadow-md hover:border-primary relative group">
-                            <input type="checkbox" name="categories[]" value="<?= $cat['id'] ?>" class="absolute top-3 right-3 w-5 h-5 text-primary rounded focus:ring-primary border-slate-300">
+                            <input type="radio" name="category_id" value="<?= $cat['id'] ?>" required class="absolute top-3 right-3 w-5 h-5 text-primary focus:ring-primary border-slate-300">
                             <span class="material-symbols-outlined text-slate-500 dark:text-gray-400 text-3xl group-hover:text-primary"><?= $cat['icon'] ?: 'work' ?></span>
                             <div class="flex flex-col gap-1">
                                 <h3 class="text-slate-900 dark:text-white text-base font-bold"><?= htmlspecialchars($cat['name']) ?></h3>
@@ -91,6 +92,7 @@ $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->
                         </label>
                         <?php endforeach; ?>
                     </div>
+                    <p class="text-xs text-slate-500 mt-4">* Sadece bir ana uzmanlık alanı seçebilirsiniz.</p>
                 </div>
 
                 <!-- Section 2: Documents -->
@@ -122,7 +124,7 @@ $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
                         <div class="flex flex-col gap-2">
                             <label class="text-sm font-medium text-slate-900 dark:text-white">İl Seçiniz</label>
-                            <select name="city" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:ring-primary focus:border-primary">
+                            <select name="city" id="citySelect" onchange="updateDistricts()" required class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:ring-primary focus:border-primary">
                                 <option value="">Seçiniz...</option>
                                 <?php foreach ($cities as $city): ?>
                                     <option value="<?= htmlspecialchars($city) ?>"><?= htmlspecialchars($city) ?></option>
@@ -130,8 +132,11 @@ $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->
                             </select>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-sm font-medium text-slate-900 dark:text-white">İlçe(ler) (Opsiyonel)</label>
-                            <input type="text" name="districts" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:ring-primary focus:border-primary" placeholder="Tüm şehir için boş bırakın">
+                            <label class="text-sm font-medium text-slate-900 dark:text-white">İlçe (Opsiyonel)</label>
+                            <select name="districts" id="districtSelect" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:ring-primary focus:border-primary">
+                                <option value="">Tüm Şehir</option>
+                            </select>
+                            <p class="text-xs text-slate-500">Belirli bir ilçe seçmezseniz, seçtiğiniz ilin tamamındaki işleri görebilirsiniz.</p>
                         </div>
                     </div>
                 </div>
@@ -179,5 +184,27 @@ $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->
         </aside>
     </div>
 </main>
+
+<script>
+    const districtsData = <?= json_encode($districts) ?>;
+
+    function updateDistricts() {
+        const citySelect = document.getElementById('citySelect');
+        const districtSelect = document.getElementById('districtSelect');
+        const selectedCity = citySelect.value;
+
+        // İlçeleri temizle
+        districtSelect.innerHTML = '<option value="">Tüm Şehir</option>';
+
+        if (selectedCity && districtsData[selectedCity]) {
+            districtsData[selectedCity].forEach(district => {
+                const option = document.createElement('option');
+                option.value = district;
+                option.textContent = district;
+                districtSelect.appendChild(option);
+            });
+        }
+    }
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

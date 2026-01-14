@@ -10,7 +10,7 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] === 'admin') {
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userId = $_SESSION['user_id'];
-    $categories = $_POST['categories'] ?? [];
+    $categoryId = $_POST['category_id'] ?? null;
     $city = $_POST['city'] ?? '';
     $districts = $_POST['districts'] ?? null;
 
@@ -18,15 +18,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
 
         // 1. Kategorileri Kaydet
-        if (!empty($categories)) {
+        if ($categoryId) {
             // Önce eskileri temizle (Güncelleme mantığı için)
             $stmt = $pdo->prepare("DELETE FROM provider_service_categories WHERE user_id = ?");
             $stmt->execute([$userId]);
 
             $stmt = $pdo->prepare("INSERT INTO provider_service_categories (user_id, category_id) VALUES (?, ?)");
-            foreach ($categories as $catId) {
-                $stmt->execute([$userId, $catId]);
-            }
+            $stmt->execute([$userId, $categoryId]);
         }
 
         // 2. Hizmet Bölgesini Kaydet

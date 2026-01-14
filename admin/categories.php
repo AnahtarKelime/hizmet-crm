@@ -10,7 +10,29 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
-$categories = $pdo->query("SELECT * FROM categories ORDER BY id DESC")->fetchAll();
+// Filtreleme Parametreleri
+$where = [];
+$params = [];
+
+if (!empty($_GET['search'])) {
+    $where[] = "name LIKE ?";
+    $params[] = "%" . $_GET['search'] . "%";
+}
+
+if (isset($_GET['status']) && $_GET['status'] !== '') {
+    $where[] = "is_active = ?";
+    $params[] = $_GET['status'];
+}
+
+$sql = "SELECT * FROM categories";
+if (!empty($where)) {
+    $sql .= " WHERE " . implode(" AND ", $where);
+}
+$sql .= " ORDER BY id DESC";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$categories = $stmt->fetchAll();
 ?>
 
 <div class="flex justify-between items-center mb-6">
@@ -22,6 +44,29 @@ $categories = $pdo->query("SELECT * FROM categories ORDER BY id DESC")->fetchAll
         <span class="material-symbols-outlined text-lg">add</span>
         Yeni Ekle
     </a>
+</div>
+
+<!-- Filtreleme Alanı -->
+<div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Kategori Ara</label>
+            <input type="text" name="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Kategori adı...">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Durum</label>
+            <select name="status" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="">Tümü</option>
+                <option value="1" <?= (isset($_GET['status']) && $_GET['status'] === '1') ? 'selected' : '' ?>>Aktif</option>
+                <option value="0" <?= (isset($_GET['status']) && $_GET['status'] === '0') ? 'selected' : '' ?>>Pasif</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-lg">filter_list</span> Filtrele
+            </button>
+        </div>
+    </form>
 </div>
 
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">

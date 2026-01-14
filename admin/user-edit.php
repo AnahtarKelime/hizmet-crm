@@ -1,44 +1,6 @@
 <?php
 require_once '../config/db.php';
-require_once 'includes/header.php';
 
-$userId = $_GET['id'] ?? null;
-
-if (!$userId) {
-    header("Location: users.php");
-    exit;
-}
-
-// Kullanıcı Bilgilerini Çek
-$stmt = $pdo->prepare("
-    SELECT u.*, pd.business_name, pd.bio, pd.subscription_type, pd.subscription_ends_at 
-    FROM users u 
-    LEFT JOIN provider_details pd ON u.id = pd.user_id 
-    WHERE u.id = ?
-");
-$stmt->execute([$userId]);
-$user = $stmt->fetch();
-
-if (!$user) {
-    echo "<div class='p-8 text-center text-red-500'>Kullanıcı bulunamadı.</div>";
-    require_once 'includes/footer.php';
-    exit;
-}
-
-// Eğer kullanıcı hizmet veren ise son tekliflerini çek
-$recentOffers = [];
-if ($user['role'] === 'provider') {
-    $stmtOffers = $pdo->prepare("
-        SELECT o.*, d.title as demand_title, d.id as demand_id, d.status as demand_status
-        FROM offers o
-        JOIN demands d ON o.demand_id = d.id
-        WHERE o.user_id = ?
-        ORDER BY o.created_at DESC
-        LIMIT 20
-    ");
-    $stmtOffers->execute([$userId]);
-    $recentOffers = $stmtOffers->fetchAll();
-}
 
 // Güncelleme İşlemi
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -46,6 +8,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->beginTransaction();
 
         // Temel Bilgiler
+        $userId = $_GET['id'] ?? null; // POST işleminde ID'yi tekrar al
         $firstName = $_POST['first_name'];
         $lastName = $_POST['last_name'];
         $email = $_POST['email'];
@@ -85,6 +48,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $pStmt = $pdo->prepare("INSERT INTO provider_details (user_id, business_name, bio, subscription_type) VALUES (?, ?, ?, ?)");
                 $pStmt->execute([$userId, $businessName, $bio, $subType]);
             }
+
+            // Hizmet Bölgelerini Güncelle
+            $city = $_POST['city'] ?? '';
+            $districts = $_POST['districts'] ?? ''; // Virgülle ayrılmış string veya array gelebilir, burada basit text input varsayıyoruz veya select
+            
+            // Önce eskileri temizle (Tek bölge varsayımıyla)
+            $pdo->prepare("DELETE FROM provider_service_areas WHERE user_id = ?")->execute([$userId]);
+            $stmtArea = $pdo->prepare("INSERT INTO provider_service_areas (user_id, city, districts) VALUES (?, ?, ?)");
+            $stmtArea->execute([$userId, $city, $districts]);
+
+            // Hizmet Kategorisini Güncelle
+            $categoryId = $_POST['category_id'] ?? null;
+            if ($categoryId) {
+                $pdo->prepare("DELETE FROM provider_service_categories WHERE user_id = ?")->execute([$userId]);
+                $stmtCat = $pdo->prepare("INSERT INTO provider_service_categories (user_id, category_id) VALUES (?, ?)");
+                $stmtCat->execute([$userId, $categoryId]);
+            }
         }
 
         $pdo->commit();
@@ -98,6 +78,63 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->rollBack();
         $errorMsg = "Hata oluştu: " . $e->getMessage();
     }
+}
+
+require_once 'includes/header.php';
+
+$userId = $_GET['id'] ?? null;
+
+if (!$userId) {
+    header("Location: users.php");
+    exit;
+}
+
+// Kullanıcı Bilgilerini Çek
+$stmt = $pdo->prepare("
+    SELECT u.*, pd.business_name, pd.bio, pd.subscription_type, pd.subscription_ends_at 
+    FROM users u 
+    LEFT JOIN provider_details pd ON u.id = pd.user_id 
+    WHERE u.id = ?
+");
+$stmt->execute([$userId]);
+$user = $stmt->fetch();
+
+if (!$user) {
+    echo "<div class='p-8 text-center text-red-500'>Kullanıcı bulunamadı.</div>";
+    require_once 'includes/footer.php';
+    exit;
+}
+
+// Şehirleri Çek
+$cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+$districtsData = $pdo->query("SELECT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
+
+// Kategorileri Çek
+$categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+
+// Eğer kullanıcı hizmet veren ise son tekliflerini çek
+$recentOffers = [];
+if ($user['role'] === 'provider') {
+    $stmtOffers = $pdo->prepare("
+        SELECT o.*, d.title as demand_title, d.id as demand_id, d.status as demand_status
+        FROM offers o
+        JOIN demands d ON o.demand_id = d.id
+        WHERE o.user_id = ?
+        ORDER BY o.created_at DESC
+        LIMIT 20
+    ");
+    $stmtOffers->execute([$userId]);
+    $recentOffers = $stmtOffers->fetchAll();
+
+    // Hizmet Bölgesini Çek
+    $stmtArea = $pdo->prepare("SELECT * FROM provider_service_areas WHERE user_id = ? LIMIT 1");
+    $stmtArea->execute([$userId]);
+    $providerArea = $stmtArea->fetch();
+
+    // Hizmet Kategorisini Çek
+    $stmtCat = $pdo->prepare("SELECT category_id FROM provider_service_categories WHERE user_id = ? LIMIT 1");
+    $stmtCat->execute([$userId]);
+    $providerCategoryId = $stmtCat->fetchColumn();
 }
 ?>
 
@@ -155,6 +192,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 <span class="text-xs text-slate-500">Kullanıcı e-posta/telefon doğrulamasını tamamlamış mı?</span>
             </div>
         </div>
+
+        <?php if ($user['role'] === 'provider'): ?>
+        <div class="p-6 border border-slate-200 rounded-lg bg-slate-50 space-y-4">
+            <h3 class="font-bold text-slate-800 border-b border-slate-200 pb-2">Hizmet Kategorisi</h3>
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Kategori</label>
+                <select name="category_id" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <option value="">Seçiniz...</option>
+                    <?php foreach ($categories as $cat): ?>
+                        <option value="<?= $cat['id'] ?>" <?= ($providerCategoryId == $cat['id']) ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
+            </div>
+        </div>
+
+        <div class="p-6 border border-slate-200 rounded-lg bg-slate-50 space-y-4">
+            <h3 class="font-bold text-slate-800 border-b border-slate-200 pb-2">Hizmet Bölgesi</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Şehir</label>
+                    <select name="city" id="citySelect" onchange="updateDistricts()" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Seçiniz...</option>
+                        <?php foreach ($cities as $city): ?>
+                            <option value="<?= htmlspecialchars($city) ?>" <?= ($providerArea['city'] ?? '') == $city ? 'selected' : '' ?>><?= htmlspecialchars($city) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">İlçe (Opsiyonel)</label>
+                    <select name="districts" id="districtSelect" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Tüm Şehir</option>
+                        <?php if (!empty($providerArea['city']) && isset($districtsData[$providerArea['city']])): ?>
+                            <?php foreach ($districtsData[$providerArea['city']] as $district): ?>
+                                <option value="<?= htmlspecialchars($district) ?>" <?= ($providerArea['districts'] ?? '') == $district ? 'selected' : '' ?>><?= htmlspecialchars($district) ?></option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </select>
+                    <p class="text-xs text-slate-500 mt-1">Belirli bir ilçe seçilmezse tüm şehir geçerli olur.</p>
+                </div>
+            </div>
+        </div>
+        <?php endif; ?>
 
         <div class="pt-6 border-t border-slate-100 flex justify-end gap-4">
             <a href="users.php" class="px-6 py-3 rounded-lg text-slate-600 font-bold hover:bg-slate-100 transition-colors">İptal</a>
@@ -236,5 +315,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
     <?php endif; ?>
 </div>
+
+<script>
+    const districtsData = <?= json_encode($districtsData) ?>;
+
+    function updateDistricts() {
+        const citySelect = document.getElementById('citySelect');
+        const districtSelect = document.getElementById('districtSelect');
+        const selectedCity = citySelect.value;
+
+        // İlçeleri temizle
+        districtSelect.innerHTML = '<option value="">Tüm Şehir</option>';
+
+        if (selectedCity && districtsData[selectedCity]) {
+            districtsData[selectedCity].forEach(district => {
+                const option = document.createElement('option');
+                option.value = district;
+                option.textContent = district;
+                districtSelect.appendChild(option);
+            });
+        }
+    }
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

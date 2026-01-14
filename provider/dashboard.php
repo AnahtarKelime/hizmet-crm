@@ -64,6 +64,10 @@ require_once '../includes/header.php';
                     <span class="material-symbols-outlined">card_membership</span>
                     Paket & Abonelik
                 </a>
+                <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm dark:text-slate-400 dark:hover:bg-slate-800" href="templates.php">
+                    <span class="material-symbols-outlined">library_books</span>
+                    Mesaj Şablonları
+                </a>
                 <a class="flex items-center gap-3 px-4 py-3 rounded-lg text-slate-600 hover:bg-slate-100 transition-colors font-medium text-sm dark:text-slate-400 dark:hover:bg-slate-800" href="#">
                     <span class="material-symbols-outlined">photo_library</span>
                     Portfolyo / Galeri

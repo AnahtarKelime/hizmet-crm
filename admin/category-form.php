@@ -1,15 +1,6 @@
 <?php
 require_once '../config/db.php';
-require_once 'includes/header.php';
 
-$id = $_GET['id'] ?? null;
-$category = ['name' => '', 'slug' => '', 'icon' => '', 'keywords' => '', 'is_active' => 1, 'tracking_code_head' => '', 'tracking_code_body' => ''];
-
-if ($id) {
-    $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
-    $stmt->execute([$id]);
-    $category = $stmt->fetch();
-}
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $name = $_POST['name'];
@@ -17,18 +8,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $icon = $_POST['icon'];
     $keywords = $_POST['keywords'];
     $isActive = isset($_POST['is_active']) ? 1 : 0;
+    $isFeatured = isset($_POST['is_featured']) ? 1 : 0;
     $trackingHead = $_POST['tracking_code_head'] ?? null;
     $trackingBody = $_POST['tracking_code_body'] ?? null;
+    
+    // Mevcut resmi al (eğer id varsa)
+    $id = $_GET['id'] ?? null;
+    $imagePath = '';
+    if ($id) {
+        $imagePath = $pdo->query("SELECT image FROM categories WHERE id = $id")->fetchColumn();
+    }
+
+    // Görsel Yükleme
+    if (isset($_FILES['image']) && $_FILES['image']['error'] === UPLOAD_ERR_OK) {
+        $uploadDir = '../uploads/categories/';
+        if (!is_dir($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $fileTmpPath = $_FILES['image']['tmp_name'];
+        $fileName = $_FILES['image']['name'];
+        $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+        $allowedExtensions = ['jpg', 'jpeg', 'png', 'webp'];
+
+        if (in_array($fileExtension, $allowedExtensions)) {
+            $newFileName = $slug . '_' . uniqid() . '.' . $fileExtension;
+            if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
+                $imagePath = 'uploads/categories/' . $newFileName;
+            }
+        }
+    }
 
     if ($id) {
-        $stmt = $pdo->prepare("UPDATE categories SET name=?, slug=?, icon=?, keywords=?, is_active=?, tracking_code_head=?, tracking_code_body=? WHERE id=?");
-        $stmt->execute([$name, $slug, $icon, $keywords, $isActive, $trackingHead, $trackingBody, $id]);
+        $stmt = $pdo->prepare("UPDATE categories SET name=?, slug=?, icon=?, image=?, keywords=?, is_active=?, is_featured=?, tracking_code_head=?, tracking_code_body=? WHERE id=?");
+        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $trackingHead, $trackingBody, $id]);
     } else {
-        $stmt = $pdo->prepare("INSERT INTO categories (name, slug, icon, keywords, is_active, tracking_code_head, tracking_code_body) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $slug, $icon, $keywords, $isActive, $trackingHead, $trackingBody]);
+        $stmt = $pdo->prepare("INSERT INTO categories (name, slug, icon, image, keywords, is_active, is_featured, tracking_code_head, tracking_code_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $trackingHead, $trackingBody]);
     }
     header("Location: categories.php");
     exit;
+}
+
+require_once 'includes/header.php';
+
+$id = $_GET['id'] ?? null;
+$category = ['name' => '', 'slug' => '', 'icon' => '', 'image' => '', 'keywords' => '', 'is_active' => 1, 'is_featured' => 0, 'tracking_code_head' => '', 'tracking_code_body' => ''];
+
+if ($id) {
+    $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
+    $stmt->execute([$id]);
+    $category = $stmt->fetch();
 }
 ?>
 
@@ -41,7 +71,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </div>
 
     <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-8">
-        <form method="POST" class="space-y-6">
+        <form method="POST" enctype="multipart/form-data" class="space-y-6">
             <div class="grid grid-cols-2 gap-6">
                 <div class="col-span-2">
                     <label class="block text-sm font-bold text-slate-700 mb-2">Hizmet Adı</label>
@@ -62,6 +92,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         <input type="text" name="icon" value="<?= htmlspecialchars($category['icon']) ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 pl-10">
                         <span class="material-symbols-outlined absolute left-3 top-2.5 text-slate-400">stars</span>
                     </div>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Kategori Görseli</label>
+                    <?php if (!empty($category['image'])): ?>
+                        <div class="mb-2">
+                            <img src="../<?= htmlspecialchars($category['image']) ?>" alt="Kategori Görseli" class="h-20 w-auto object-cover rounded-lg border border-slate-200">
+                        </div>
+                    <?php endif; ?>
+                    <input type="file" name="image" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    <p class="text-xs text-slate-500 mt-1">Önerilen boyut: 600x800px (Dikey)</p>
                 </div>
 
                 <div class="col-span-2">
@@ -93,13 +134,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 </div>
 
                 <div class="col-span-2">
-                    <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
-                        <input type="checkbox" name="is_active" value="1" <?= $category['is_active'] ? 'checked' : '' ?> class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
-                        <div>
-                            <span class="block font-bold text-slate-700">Aktif Hizmet</span>
-                            <span class="text-xs text-slate-500">Bu hizmet sitede görüntülensin ve aramalarda çıksın.</span>
-                        </div>
-                    </label>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="is_active" value="1" <?= $category['is_active'] ? 'checked' : '' ?> class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
+                            <div>
+                                <span class="block font-bold text-slate-700">Aktif Hizmet</span>
+                                <span class="text-xs text-slate-500">Bu hizmet sitede görüntülensin ve aramalarda çıksın.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="is_featured" value="1" <?= $category['is_featured'] ? 'checked' : '' ?> class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
+                            <div>
+                                <span class="block font-bold text-slate-700">Anasayfada Göster</span>
+                                <span class="text-xs text-slate-500">Bu hizmet anasayfadaki "Popüler Kategoriler" alanında listelensin.</span>
+                            </div>
+                        </label>
+                    </div>
                 </div>
             </div>
 

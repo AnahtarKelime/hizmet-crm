@@ -138,6 +138,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">settings</span>
                 Genel Ayarlar
             </a>
+            <a href="social-login-settings.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'social-login-settings.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">login</span>
+                Sosyal Giriş
+            </a>
             <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
                 <span class="material-symbols-outlined">mark_email_unread</span>
                 Mail Servisleri

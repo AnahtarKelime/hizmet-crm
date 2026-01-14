@@ -17,6 +17,11 @@ if ($isLoggedIn && isset($pdo)) {
         $_SESSION['user_role'] = $currentUser['role'];
         $_SESSION['user_name'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
     }
+
+    // Okunmamış Mesaj Sayısı
+    $stmtMsg = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0 AND deleted_by_receiver = 0");
+    $stmtMsg->execute([$_SESSION['user_id']]);
+    $unreadCount = $stmtMsg->fetchColumn();
 }
 
 // Site Ayarlarını Çek
@@ -170,7 +175,7 @@ $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul
                             </div>
                             <div class="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                 <div class="flex gap-4">
-                                    <a class="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all" href="#">Tüm Kategoriler</a>
+                                    <a class="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all" href="<?= $pathPrefix ?>tum-hizmetler.php">Tüm Kategoriler</a>
                                     <a class="px-6 py-3 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-300 rounded-xl font-bold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all" href="<?= $pathPrefix ?>nasil-calisir.php">Nasıl Çalışır?</a>
                                 </div>
                                 <div class="text-slate-400 text-sm font-medium italic"><?= htmlspecialchars($siteTitle) ?> ile aradığın uzman kapında.</div>
@@ -200,18 +205,33 @@ $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul
             </nav>
             <div class="flex items-center gap-3">
                 <?php if ($isLoggedIn): ?>
+                    <!-- Mesajlar -->
+                    <a href="<?= $pathPrefix ?>messages.php" class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" title="Mesajlarım">
+                        <span class="material-symbols-outlined text-2xl">mail</span>
+                        <?php if (isset($unreadCount) && $unreadCount > 0): ?>
+                            <span class="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900"><?= $unreadCount ?></span>
+                        <?php endif; ?>
+                    </a>
+                    <!-- Bildirimler -->
+                    <a href="#" class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors mr-2">
+                        <span class="material-symbols-outlined text-2xl">notifications</span>
+                        <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
+                    </a>
+
                     <div class="relative group">
-                        <button class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors">
+                        <button class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors py-2">
                             <span class="material-symbols-outlined">account_circle</span>
                             <span><?= htmlspecialchars($userName) ?></span>
                             <span class="material-symbols-outlined text-sm">expand_more</span>
                         </button>
                         <!-- Dropdown -->
-                        <div class="absolute right-0 top-full mt-2 w-48 bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 hidden group-hover:block z-50">
+                        <div class="absolute right-0 top-full pt-2 w-48 hidden group-hover:block z-50">
+                            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                             <ul class="py-2">
                                 <li><a href="<?= $pathPrefix ?>profile.php" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Profilim</a></li>
                                 <li><a href="<?= $pathPrefix ?>logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Çıkış Yap</a></li>
                             </ul>
+                            </div>
                         </div>
                     </div>
                 <?php else: ?>

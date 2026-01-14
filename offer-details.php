@@ -1,7 +1,10 @@
 <?php
 require_once 'config/db.php';
-$pageTitle = "Teklif Detayları";
-require_once 'includes/header.php';
+
+// Oturumu başlat (header.php'den önce işlem yaptığımız için gerekli)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -32,13 +35,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([$offerId]);
 $offer = $stmt->fetch();
 
-// Güvenlik: Sadece talebin sahibi veya Admin bu teklifi görebilir
-if (!$offer || ($offer['demand_owner_id'] != $userId && (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin'))) {
-    echo "<div class='max-w-7xl mx-auto px-4 py-12'><div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>Teklif bulunamadı veya görüntüleme yetkiniz yok.</div></div>";
-    require_once 'includes/footer.php';
-    exit;
-}
-
 // İşlem Yönetimi
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $action = $_POST['action'] ?? '';
@@ -68,6 +64,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $successMsg = "Teklif reddedildi.";
         header("Refresh:2");
     }
+}
+
+$pageTitle = "Teklif Detayları";
+require_once 'includes/header.php';
+
+// Güvenlik: Sadece talebin sahibi veya Admin bu teklifi görebilir
+if (!$offer || ($offer['demand_owner_id'] != $userId && (!isset($_SESSION['user_role']) || $_SESSION['user_role'] !== 'admin'))) {
+    echo "<div class='max-w-7xl mx-auto px-4 py-12'><div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>Teklif bulunamadı veya görüntüleme yetkiniz yok.</div></div>";
+    require_once 'includes/footer.php';
+    exit;
 }
 ?>
 
@@ -175,7 +181,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             </button>
                         </form>
                         
-                        <a href="mailto:<?= htmlspecialchars($offer['email']) ?>" class="w-full py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                        <a href="messages.php?offer_id=<?= $offer['id'] ?>" class="w-full py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
                             <span class="material-symbols-outlined">chat</span>
                             Mesaj Gönder
                         </a>
@@ -189,8 +195,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         </form>
                     </div>
                 <?php elseif ($offer['status'] === 'accepted'): ?>
-                    <div class="bg-green-50 text-green-700 p-4 rounded-xl text-center font-bold border border-green-200">
-                        Bu teklif kabul edildi.
+                    <div class="space-y-3">
+                        <div class="bg-green-50 text-green-700 p-4 rounded-xl text-center font-bold border border-green-200">
+                            Bu teklif kabul edildi.
+                        </div>
+                        <a href="messages.php?offer_id=<?= $offer['id'] ?>" class="w-full py-3 bg-white text-slate-700 font-bold rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center justify-center gap-2">
+                            <span class="material-symbols-outlined">chat</span>
+                            Mesaj Gönder
+                        </a>
                     </div>
                 <?php else: ?>
                     <div class="bg-red-50 text-red-700 p-4 rounded-xl text-center font-bold border border-red-200">

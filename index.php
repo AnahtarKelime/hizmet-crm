@@ -5,8 +5,15 @@ $pageTitle = "Anasayfa";
 // Popüler kategorileri veritabanından çek
 $popularCategories = [];
 try {
-    $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY id ASC LIMIT 4");
+    // Önce öne çıkanları çek
+    $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 AND is_featured = 1 ORDER BY id ASC LIMIT 12");
     $popularCategories = $stmt->fetchAll();
+
+    // Eğer öne çıkan yoksa, varsayılan olarak ilk 14'ü çek
+    if (empty($popularCategories)) {
+        $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY id ASC LIMIT 12");
+        $popularCategories = $stmt->fetchAll();
+    }
 } catch (PDOException $e) {
     // Hata durumunda boş dizi kalır
 }
@@ -82,8 +89,13 @@ require_once 'includes/header.php';
         <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             <?php foreach($popularCategories as $cat): ?>
             <div class="group relative h-[380px] rounded-3xl overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl transition-all border-4 border-transparent hover:border-accent/50" onclick="window.location.href='teklif-al.php?service=<?= $cat['slug'] ?>'">
-                <!-- Dinamik resim olmadığı için placeholder kullanıyoruz -->
-                <img alt="<?= htmlspecialchars($cat['name']) ?>" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" src="https://placehold.co/600x800/1a2a6c/FFF?text=<?= urlencode($cat['name']) ?>"/>
+                <?php 
+                // Görsel varsa onu kullan, yoksa placeholder
+                $bgImage = !empty($cat['image']) && file_exists($cat['image']) 
+                    ? htmlspecialchars($cat['image']) 
+                    : "https://placehold.co/600x800/1a2a6c/FFF?text=" . urlencode($cat['name']);
+                ?>
+                <img alt="<?= htmlspecialchars($cat['name']) ?>" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" src="<?= $bgImage ?>"/>
                 <div class="absolute inset-0 service-card-overlay flex flex-col justify-end p-8">
                     <?php if($cat['id'] == 1): ?><span class="bg-accent text-primary text-[10px] font-black px-2 py-0.5 rounded w-fit mb-3">EN ÇOK ARANAN</span><?php endif; ?>
                     <h4 class="text-white font-black text-2xl mb-2"><?= htmlspecialchars($cat['name']) ?></h4>

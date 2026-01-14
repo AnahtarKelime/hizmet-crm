@@ -1,7 +1,10 @@
 <?php
 require_once 'config/db.php';
-$pageTitle = "Talep Detayı";
-require_once 'includes/header.php';
+
+// Oturumu başlat (header.php'den önce işlem yaptığımız için gerekli)
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 
 if (!isset($_SESSION['user_id'])) {
     header("Location: login.php");
@@ -27,8 +30,97 @@ $stmt = $pdo->prepare("
     LEFT JOIN locations l ON d.location_id = l.id
     WHERE d.id = ?
 ");
-$stmt->execute([$demandId, $userId]);
+$stmt->execute([$demandId]);
 $demand = $stmt->fetch();
+
+// Yetki Kontrolü Değişkenleri
+$isOwner = ($demand && $demand['user_id'] == $userId);
+$isProvider = (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'provider');
+
+// Provider için kredi ve teklif durumu kontrolü
+$hasOffered = false;
+$hasCredit = false;
+$providerDetails = null;
+$templates = [];
+
+if ($isProvider && !$isOwner && $demand) {
+    // Teklif verip vermediğini kontrol et
+    $stmt = $pdo->prepare("SELECT id FROM offers WHERE demand_id = ? AND user_id = ?");
+    $stmt->execute([$demandId, $userId]);
+    if ($stmt->fetch()) {
+        $hasOffered = true;
+    }
+
+    // Kredi ve abonelik durumunu kontrol et
+    $stmt = $pdo->prepare("SELECT * FROM provider_details WHERE user_id = ?");
+    $stmt->execute([$userId]);
+    $providerDetails = $stmt->fetch();
+
+    if ($providerDetails && $providerDetails['subscription_ends_at'] && new DateTime($providerDetails['subscription_ends_at']) > new DateTime()) {
+        if ($providerDetails['remaining_offer_credit'] > 0 || $providerDetails['remaining_offer_credit'] == -1) {
+            $hasCredit = true;
+        }
+    }
+
+    // Şablonları Çek
+    $stmt = $pdo->prepare("SELECT * FROM provider_message_templates WHERE user_id = ? ORDER BY title ASC");
+    $stmt->execute([$userId]);
+    $templates = $stmt->fetchAll();
+}
+
+// Provider Teklif Verme İşlemi
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_offer'])) {
+    if ($isProvider && !$isOwner && $hasCredit && !$hasOffered) {
+        $price = $_POST['price'];
+        $message = $_POST['message'];
+
+        $pdo->beginTransaction();
+        $stmt = $pdo->prepare("INSERT INTO offers (demand_id, user_id, price, message, status) VALUES (?, ?, ?, ?, 'pending')");
+        $stmt->execute([$demandId, $userId, $price, $message]);
+
+        if ($providerDetails['remaining_offer_credit'] != -1) {
+            $stmt = $pdo->prepare("UPDATE provider_details SET remaining_offer_credit = remaining_offer_credit - 1 WHERE user_id = ?");
+            $stmt->execute([$userId]);
+        }
+        $pdo->commit();
+        $successMsg = "Teklifiniz başarıyla gönderildi.";
+        $hasOffered = true; // Sayfa yenilenmeden durumu güncelle
+    }
+}
+
+// İşlem Yönetimi (Teklif Kabul/Red) - Müşteri için
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $isOwner) {
+    $action = $_POST['action'];
+    $offerId = $_POST['offer_id'];
+
+    if ($action === 'accept') {
+        try {
+            $pdo->beginTransaction();
+            // 1. Bu teklifi kabul et
+            $stmt = $pdo->prepare("UPDATE offers SET status = 'accepted' WHERE id = ?");
+            $stmt->execute([$offerId]);
+            
+            // 2. Talebin durumunu güncelle
+            $stmt = $pdo->prepare("UPDATE demands SET status = 'completed' WHERE id = ?");
+            $stmt->execute([$demandId]);
+            
+            $pdo->commit();
+            $successMsg = "Teklif başarıyla kabul edildi.";
+            header("Refresh:1");
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $errorMsg = "İşlem sırasında hata oluştu: " . $e->getMessage();
+        }
+    } elseif ($action === 'reject') {
+        $stmt = $pdo->prepare("UPDATE offers SET status = 'rejected' WHERE id = ?");
+        $stmt->execute([$offerId]);
+        $successMsg = "Teklif reddedildi.";
+        header("Refresh:1");
+    }
+}
+
+$pageTitle = "Talep Detayı";
+require_once 'includes/header.php';
 
 if (!$demand) { // Talep yoksa
     echo "<div class='max-w-7xl mx-auto px-4 py-12'><div class='bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded'>Talep bulunamadı veya bu talebi görüntüleme yetkiniz yok.</div></div>";
@@ -62,7 +154,6 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$demandId]);
 $offers = $stmt->fetchAll();
-
 ?>
 
 <main class="max-w-7xl mx-auto px-4 py-12 min-h-[60vh]">
@@ -80,6 +171,9 @@ $offers = $stmt->fetchAll();
     <?php endif; ?>
     <?php if (isset($successMsg)): ?>
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6"><?= $successMsg ?></div>
+    <?php endif; ?>
+    <?php if (isset($errorMsg)): ?>
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6"><?= $errorMsg ?></div>
     <?php endif; ?>
 
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -152,7 +246,12 @@ $offers = $stmt->fetchAll();
                     <?php else: ?>
                         <div class="space-y-4">
                             <?php foreach ($offers as $offer): ?>
-                                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100 relative overflow-hidden transition-all hover:shadow-md group">
+                                <?php
+                                    $borderColor = 'border-slate-100';
+                                    if ($offer['status'] === 'accepted') $borderColor = 'border-green-500 ring-1 ring-green-500';
+                                    if ($offer['status'] === 'rejected') $borderColor = 'border-red-500 ring-1 ring-red-500';
+                                ?>
+                                <div class="bg-white p-6 rounded-2xl shadow-sm border <?= $borderColor ?> relative overflow-hidden transition-all hover:shadow-md group">
                                     <div class="flex justify-between items-start mb-4">
                                         <div class="flex items-center gap-4">
                                             <div class="w-12 h-12 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-lg border-2 border-white shadow-sm group-hover:border-primary/20 transition-colors">
@@ -176,13 +275,40 @@ $offers = $stmt->fetchAll();
                                     <p class="text-sm text-slate-600 bg-slate-50 p-4 rounded-xl mb-4 line-clamp-2 border border-slate-100">
                                         <?= nl2br(htmlspecialchars($offer['message'])) ?>
                                     </p>
-                                    <div class="flex justify-end gap-3">
+                                    
+                                    <div class="flex flex-wrap justify-end gap-3 pt-2 border-t border-slate-50">
+                                        <?php if ($offer['status'] === 'pending'): ?>
+                                            <form method="POST" class="inline-block">
+                                                <input type="hidden" name="action" value="accept">
+                                                <input type="hidden" name="offer_id" value="<?= $offer['id'] ?>">
+                                                <button type="submit" class="px-4 py-2 text-xs font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 transition-colors flex items-center gap-1" onclick="return confirm('Bu teklifi kabul etmek istediğinize emin misiniz?')">
+                                                    <span class="material-symbols-outlined text-sm">check_circle</span> Kabul Et
+                                                </button>
+                                            </form>
+                                            
+                                            <a href="messages.php?offer_id=<?= $offer['id'] ?>" class="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-sm">chat</span> Mesaj
+                                            </a>
+
+                                            <form method="POST" class="inline-block">
+                                                <input type="hidden" name="action" value="reject">
+                                                <input type="hidden" name="offer_id" value="<?= $offer['id'] ?>">
+                                                <button type="submit" class="px-4 py-2 text-xs font-bold text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 transition-colors flex items-center gap-1" onclick="return confirm('Bu teklifi reddetmek istediğinize emin misiniz?')">
+                                                    <span class="material-symbols-outlined text-sm">cancel</span> Reddet
+                                                </button>
+                                            </form>
+                                        <?php elseif ($offer['status'] === 'accepted'): ?>
+                                            <span class="px-4 py-2 text-xs font-bold text-green-700 bg-green-100 rounded-lg border border-green-200 flex items-center gap-1"><span class="material-symbols-outlined text-sm">verified</span> Kabul Edildi</span>
+                                            <a href="messages.php?offer_id=<?= $offer['id'] ?>" class="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1">
+                                                <span class="material-symbols-outlined text-sm">chat</span> Mesaj
+                                            </a>
+                                        <?php elseif ($offer['status'] === 'rejected'): ?>
+                                            <span class="px-4 py-2 text-xs font-bold text-red-700 bg-red-100 rounded-lg border border-red-200 flex items-center gap-1"><span class="material-symbols-outlined text-sm">block</span> Reddedildi</span>
+                                        <?php endif; ?>
+
                                         <a href="offer-details.php?id=<?= $offer['id'] ?>" class="px-5 py-2.5 text-sm font-bold text-slate-700 border border-slate-200 rounded-xl hover:bg-slate-50 flex items-center gap-2 transition-colors">
                                             <span class="material-symbols-outlined text-sm">visibility</span> İncele
                                         </a>
-                                        <?php if ($offer['status'] === 'accepted'): ?>
-                                            <span class="px-5 py-2.5 text-sm font-bold text-green-700 bg-green-100 rounded-xl border border-green-200">Kabul Edildi</span>
-                                        <?php endif; ?>
                                     </div>
                                 </div>
                             <?php endforeach; ?>
@@ -207,8 +333,27 @@ $offers = $stmt->fetchAll();
                                 <input type="number" name="price" step="0.01" required class="w-full rounded-lg border-slate-300 focus:border-primary focus:ring-primary">
                             </div>
                             <div>
-                                <label class="block text-sm font-bold text-slate-700 mb-2">Müşteriye Mesajınız</label>
-                                <textarea name="message" rows="4" required class="w-full rounded-lg border-slate-300 focus:border-primary focus:ring-primary" placeholder="İşle ilgili detayları, neden sizi seçmesi gerektiğini ve süreci anlatın..."></textarea>
+                                <div class="flex justify-between items-center mb-2">
+                                    <label class="block text-sm font-bold text-slate-700">Müşteriye Mesajınız</label>
+                                    <?php if (!empty($templates)): ?>
+                                        <select onchange="insertTemplate(this)" class="text-xs border-slate-200 rounded-lg py-1 pl-2 pr-8 focus:ring-primary focus:border-primary text-slate-600">
+                                            <option value="">Şablon Seç...</option>
+                                            <?php foreach ($templates as $tpl): ?>
+                                                <option value="<?= htmlspecialchars($tpl['message']) ?>"><?= htmlspecialchars($tpl['title']) ?></option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    <?php else: ?>
+                                        <a href="provider/templates.php" class="text-xs text-primary hover:underline font-medium flex items-center gap-1">
+                                            <span class="material-symbols-outlined text-[14px]">add_circle</span> Şablon Oluştur
+                                        </a>
+                                    <?php endif; ?>
+                                </div>
+                                <textarea name="message" id="offerMessage" rows="4" required class="w-full rounded-lg border-slate-300 focus:border-primary focus:ring-primary" placeholder="İşle ilgili detayları, neden sizi seçmesi gerektiğini ve süreci anlatın..."></textarea>
+                                <script>
+                                    function insertTemplate(select) {
+                                        if(select.value) document.getElementById('offerMessage').value = select.value;
+                                    }
+                                </script>
                             </div>
                             <button type="submit" class="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 shadow-lg">Teklifi Gönder (-1 Kredi)</button>
                         </form>
