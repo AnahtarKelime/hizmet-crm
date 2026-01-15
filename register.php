@@ -49,11 +49,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } elseif (strlen($password) < 6) {
         $error = 'Şifre en az 6 karakter olmalıdır.';
     } else {
-        // E-posta kontrolü
-        $stmt = $pdo->prepare("SELECT id FROM users WHERE email = ?");
-        $stmt->execute([$email]);
-        if ($stmt->fetch()) {
-            $error = 'Bu e-posta adresi zaten kayıtlı.';
+        // E-posta ve Telefon kontrolü
+        $stmt = $pdo->prepare("SELECT email, phone FROM users WHERE email = ? OR phone = ?");
+        $stmt->execute([$email, $phone]);
+        $existingUser = $stmt->fetch();
+
+        if ($existingUser) {
+            if ($existingUser['email'] === $email) {
+                $error = 'Bu e-posta adresi zaten kayıtlı.';
+            } else {
+                $error = 'Bu telefon numarası zaten kayıtlı.';
+            }
         } else {
             try {
                 $pdo->beginTransaction();
@@ -149,7 +155,7 @@ require_once 'includes/header.php';
 
             <div>
                 <label class="block text-sm font-medium text-slate-700 mb-1">Telefon Numarası</label>
-                <input name="phone" type="tel" class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="0555 555 55 55">
+                <input name="phone" id="phoneInput" type="tel" class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="0555 555 55 55" maxlength="15">
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -235,6 +241,15 @@ require_once 'includes/header.php';
                 districtSelect.appendChild(option);
             });
         }
+    }
+
+    // Telefon Numarası Maskeleme (05XX XXX XX XX)
+    const phoneInput = document.getElementById('phoneInput');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function (e) {
+            let x = e.target.value.replace(/\D/g, '').match(/(\d{0,4})(\d{0,3})(\d{0,2})(\d{0,2})/);
+            e.target.value = !x[2] ? x[1] : x[1] + ' ' + x[2] + (x[3] ? ' ' + x[3] : '') + (x[4] ? ' ' + x[4] : '');
+        });
     }
 </script>
 <?php require_once 'includes/footer.php'; ?>

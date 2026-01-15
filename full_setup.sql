@@ -6,6 +6,7 @@ USE `hizmet_crm`;
 DROP TABLE IF EXISTS `transactions`;
 DROP TABLE IF EXISTS `lead_access_logs`;
 DROP TABLE IF EXISTS `offers`;
+DROP TABLE IF EXISTS `reviews`;
 DROP TABLE IF EXISTS `demand_answers`;
 DROP TABLE IF EXISTS `demands`;
 DROP TABLE IF EXISTS `category_questions`;
@@ -229,6 +230,20 @@ CREATE TABLE `provider_documents` (
   CONSTRAINT `fk_pd_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- YORUMLAR VE DEĞERLENDİRMELER
+CREATE TABLE `reviews` (
+  `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
+  `offer_id` int(11) unsigned NOT NULL,
+  `reviewer_id` int(11) unsigned NOT NULL,
+  `reviewed_id` int(11) unsigned NOT NULL,
+  `rating` decimal(2,1) NOT NULL,
+  `criteria_ratings` longtext CHARACTER SET utf8mb4 COLLATE utf8mb4_bin DEFAULT NULL CHECK (json_valid(`criteria_ratings`)),
+  `comment` text DEFAULT NULL,
+  `is_approved` TINYINT(1) NOT NULL DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- 3. VERİLERİ EKLE (INSERT)
 
 -- KATEGORİLER
@@ -378,6 +393,8 @@ DELETE FROM `transactions`;
 ALTER TABLE `transactions` AUTO_INCREMENT = 1;
 DELETE FROM `lead_access_logs`;
 ALTER TABLE `lead_access_logs` AUTO_INCREMENT = 1;
+DELETE FROM `reviews`;
+ALTER TABLE `reviews` AUTO_INCREMENT = 1;
 DELETE FROM `offers`;
 ALTER TABLE `offers` AUTO_INCREMENT = 1;
 DELETE FROM `demand_answers`;

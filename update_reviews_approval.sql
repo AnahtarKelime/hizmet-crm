@@ -1,0 +1,2 @@
+USE `hizmet_crm`;
+ALTER TABLE `reviews` ADD COLUMN `is_approved` TINYINT(1) NOT NULL DEFAULT 0;

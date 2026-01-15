@@ -24,10 +24,12 @@ $stmt = $pdo->prepare("
     SELECT 
         d.*, 
         c.name as category_name, 
-        l.city, l.district, l.neighborhood 
+        l.city, l.district, l.neighborhood,
+        u.first_name, u.last_name, u.email, u.phone
     FROM demands d
     LEFT JOIN categories c ON d.category_id = c.id
     LEFT JOIN locations l ON d.location_id = l.id
+    LEFT JOIN users u ON d.user_id = u.id
     WHERE d.id = ?
 ");
 $stmt->execute([$demandId]);
@@ -42,12 +44,14 @@ $hasOffered = false;
 $hasCredit = false;
 $providerDetails = null;
 $templates = [];
+$myOffer = null;
 
 if ($isProvider && !$isOwner && $demand) {
     // Teklif verip vermediğini kontrol et
-    $stmt = $pdo->prepare("SELECT id FROM offers WHERE demand_id = ? AND user_id = ?");
+    $stmt = $pdo->prepare("SELECT id, status FROM offers WHERE demand_id = ? AND user_id = ?");
     $stmt->execute([$demandId, $userId]);
-    if ($stmt->fetch()) {
+    $myOffer = $stmt->fetch();
+    if ($myOffer) {
         $hasOffered = true;
     }
 
@@ -66,6 +70,9 @@ if ($isProvider && !$isOwner && $demand) {
     $stmt = $pdo->prepare("SELECT * FROM provider_message_templates WHERE user_id = ? ORDER BY title ASC");
     $stmt->execute([$userId]);
     $templates = $stmt->fetchAll();
+
+    // Görüntülenme Kaydı (Log View)
+    $pdo->prepare("INSERT IGNORE INTO lead_access_logs (demand_id, user_id, access_type) VALUES (?, ?, 'premium_view')")->execute([$demandId, $userId]);
 }
 
 // Provider Teklif Verme İşlemi
@@ -145,14 +152,15 @@ $stmt = $pdo->prepare("
     SELECT 
         o.*, 
         u.first_name, u.last_name,
-        pd.business_name
+        pd.business_name,
+        (SELECT COUNT(*) FROM reviews WHERE offer_id = o.id AND reviewer_id = :current_user) as has_reviewed
     FROM offers o
     LEFT JOIN users u ON o.user_id = u.id
     LEFT JOIN provider_details pd ON u.id = pd.user_id
-    WHERE o.demand_id = ?
+    WHERE o.demand_id = :demand_id
     ORDER BY o.created_at DESC
 ");
-$stmt->execute([$demandId]);
+$stmt->execute(['demand_id' => $demandId, 'current_user' => $userId]);
 $offers = $stmt->fetchAll();
 ?>
 
@@ -302,6 +310,11 @@ $offers = $stmt->fetchAll();
                                             <a href="messages.php?offer_id=<?= $offer['id'] ?>" class="px-4 py-2 text-xs font-bold text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 transition-colors flex items-center gap-1">
                                                 <span class="material-symbols-outlined text-sm">chat</span> Mesaj
                                             </a>
+                                            <?php if (!$offer['has_reviewed']): ?>
+                                                <a href="rate-provider.php?offer_id=<?= $offer['id'] ?>" class="px-4 py-2 text-xs font-bold text-yellow-700 bg-yellow-50 border border-yellow-200 rounded-lg hover:bg-yellow-100 transition-colors flex items-center gap-1">
+                                                    <span class="material-symbols-outlined text-sm">star</span> Hizmeti Değerlendir
+                                                </a>
+                                            <?php endif; ?>
                                         <?php elseif ($offer['status'] === 'rejected'): ?>
                                             <span class="px-4 py-2 text-xs font-bold text-red-700 bg-red-100 rounded-lg border border-red-200 flex items-center gap-1"><span class="material-symbols-outlined text-sm">block</span> Reddedildi</span>
                                         <?php endif; ?>
@@ -369,6 +382,34 @@ $offers = $stmt->fetchAll();
 
         <!-- Sağ Kolon: Bilgi -->
         <div class="space-y-6">
+            <?php if ($isProvider && !empty($myOffer) && $myOffer['status'] === 'accepted'): ?>
+                <div class="bg-green-50 p-6 rounded-2xl border border-green-100 shadow-sm">
+                    <h4 class="font-bold text-green-800 mb-4 flex items-center gap-2">
+                        <span class="material-symbols-outlined">person</span>
+                        Müşteri Detayları
+                    </h4>
+                    <div class="space-y-3">
+                        <div>
+                            <span class="text-xs font-bold text-green-600 uppercase tracking-wider block mb-1">Ad Soyad</span>
+                            <p class="font-bold text-slate-800"><?= htmlspecialchars($demand['first_name'] . ' ' . $demand['last_name']) ?></p>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-green-600 uppercase tracking-wider block mb-1">Telefon</span>
+                            <a href="tel:<?= htmlspecialchars($demand['phone']) ?>" class="font-bold text-slate-800 hover:text-green-700 transition-colors"><?= htmlspecialchars($demand['phone']) ?></a>
+                        </div>
+                        <div>
+                            <span class="text-xs font-bold text-green-600 uppercase tracking-wider block mb-1">E-posta</span>
+                            <a href="mailto:<?= htmlspecialchars($demand['email']) ?>" class="font-bold text-slate-800 hover:text-green-700 transition-colors"><?= htmlspecialchars($demand['email']) ?></a>
+                        </div>
+                        <div class="pt-2">
+                            <a href="messages.php?offer_id=<?= $myOffer['id'] ?>" class="w-full py-3 bg-white text-green-700 font-bold rounded-xl border border-green-200 hover:bg-green-100 transition-colors flex items-center justify-center gap-2 text-sm shadow-sm">
+                                <span class="material-symbols-outlined text-sm">chat</span> Mesaj Gönder
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+
             <div class="bg-blue-50 p-6 rounded-2xl border border-blue-100">
                 <h4 class="font-bold text-blue-800 mb-2 flex items-center gap-2">
                     <span class="material-symbols-outlined">info</span>

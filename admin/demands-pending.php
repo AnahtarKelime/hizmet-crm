@@ -2,6 +2,16 @@
 require_once '../config/db.php';
 require_once 'includes/header.php';
 
+// Sayfalama Ayarları
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+// Toplam Bekleyen Talep Sayısı
+$totalStmt = $pdo->query("SELECT COUNT(*) FROM demands WHERE status = 'pending' AND is_archived = 0");
+$totalDemands = $totalStmt->fetchColumn();
+$totalPages = ceil($totalDemands / $limit);
+
 // Sadece Beklemede (Pending) Olan Talepleri Çek
 $sql = "SELECT 
             d.*, 
@@ -13,10 +23,15 @@ $sql = "SELECT
         LEFT JOIN categories c ON d.category_id = c.id
         LEFT JOIN locations l ON d.location_id = l.id
         WHERE d.status = 'pending' AND d.is_archived = 0
-        ORDER BY d.created_at DESC";
+        ORDER BY d.created_at DESC
+        LIMIT :limit OFFSET :offset";
 
 try {
-    $demands = $pdo->query($sql)->fetchAll();
+    $stmt = $pdo->prepare($sql);
+    $stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
+    $stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    $stmt->execute();
+    $demands = $stmt->fetchAll();
 } catch (PDOException $e) {
     $demands = [];
     $error = "Veri çekilirken hata oluştu: " . $e->getMessage();
@@ -82,6 +97,31 @@ try {
             </tbody>
         </table>
     </div>
+
+    <!-- Sayfalama -->
+    <?php if ($totalPages > 1): ?>
+    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-center">
+        <div class="flex gap-2">
+            <?php if ($page > 1): ?>
+                <a href="?page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-sm">chevron_left</span>
+                </a>
+            <?php endif; ?>
+            
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a href="?page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
+                    <?= $i ?>
+                </a>
+            <?php endfor; ?>
+
+            <?php if ($page < $totalPages): ?>
+                <a href="?page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once 'includes/footer.php'; ?>

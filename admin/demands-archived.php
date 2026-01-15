@@ -2,6 +2,11 @@
 require_once '../config/db.php';
 require_once 'includes/header.php';
 
+// Sayfalama Ayarları
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
 // Filtreleme Parametreleri
 $where = ["d.is_archived = 1"];
 $params = [];
@@ -19,6 +24,13 @@ if (!empty($_GET['status'])) {
     $params[] = $_GET['status'];
 }
 
+// Toplam Kayıt Sayısı (Filtrelenmiş)
+$countSql = "SELECT COUNT(*) FROM demands d LEFT JOIN users u ON d.user_id = u.id WHERE " . implode(" AND ", $where);
+$countStmt = $pdo->prepare($countSql);
+$countStmt->execute($params);
+$totalDemands = $countStmt->fetchColumn();
+$totalPages = ceil($totalDemands / $limit);
+
 // Talepleri Çek
 $sql = "SELECT 
             d.*, 
@@ -30,10 +42,17 @@ $sql = "SELECT
         LEFT JOIN categories c ON d.category_id = c.id
         LEFT JOIN locations l ON d.location_id = l.id
         WHERE " . implode(" AND ", $where) . "
-        ORDER BY d.updated_at DESC";
+        ORDER BY d.updated_at DESC
+        LIMIT ? OFFSET ?";
 
 $stmt = $pdo->prepare($sql);
-$stmt->execute($params);
+// Parametreleri bağla (Filtreler + Limit/Offset)
+foreach ($params as $i => $val) {
+    $stmt->bindValue($i + 1, $val);
+}
+$stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+$stmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
+$stmt->execute();
 $demands = $stmt->fetchAll();
 ?>
 
@@ -109,6 +128,39 @@ $demands = $stmt->fetchAll();
             </tbody>
         </table>
     </div>
+
+    <!-- Sayfalama -->
+    <?php if ($totalPages > 1): ?>
+    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-center">
+        <div class="flex gap-2">
+            <?php 
+            // Mevcut query string'i koru (page hariç)
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $queryString = http_build_query($queryParams);
+            $baseUrl = '?' . ($queryString ? $queryString . '&' : '');
+            ?>
+            
+            <?php if ($page > 1): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-sm">chevron_left</span>
+                </a>
+            <?php endif; ?>
+            
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a href="<?= $baseUrl ?>page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
+                    <?= $i ?>
+                </a>
+            <?php endfor; ?>
+
+            <?php if ($page < $totalPages): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                    <span class="material-symbols-outlined text-sm">chevron_right</span>
+                </a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once 'includes/footer.php'; ?>
