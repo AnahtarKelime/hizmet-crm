@@ -24,7 +24,7 @@ $stmt = $pdo->prepare("
     SELECT 
         o.*, 
         d.title as demand_title, d.user_id as demand_owner_id,
-        u.first_name, u.last_name, u.email, u.phone,
+        u.first_name, u.last_name, u.email, u.phone, u.avatar_url,
         pd.business_name, pd.bio
     FROM offers o
     JOIN demands d ON o.demand_id = d.id
@@ -108,9 +108,13 @@ if (!$offer || ($offer['demand_owner_id'] != $userId && (!isset($_SESSION['user_
                 </div>
 
                 <div class="flex items-center gap-4 mb-6">
-                    <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-white shadow-sm">
-                        <?= substr($offer['first_name'], 0, 1) . substr($offer['last_name'], 0, 1) ?>
-                    </div>
+                    <?php if (!empty($offer['avatar_url'])): ?>
+                        <img src="<?= htmlspecialchars($offer['avatar_url']) ?>" alt="Hizmet Veren" class="w-16 h-16 rounded-full object-cover border-2 border-white shadow-sm">
+                    <?php else: ?>
+                        <div class="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-bold text-xl border-2 border-white shadow-sm">
+                            <?= substr($offer['first_name'], 0, 1) . substr($offer['last_name'], 0, 1) ?>
+                        </div>
+                    <?php endif; ?>
                     <div>
                         <h2 class="text-xl font-bold text-slate-800"><?= htmlspecialchars($offer['business_name'] ?: $offer['first_name'] . ' ' . $offer['last_name']) ?></h2>
                         <div class="flex items-center gap-1 text-sm text-slate-500">

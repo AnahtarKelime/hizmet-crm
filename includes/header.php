@@ -10,12 +10,13 @@ $pathPrefix = $pathPrefix ?? '';
 
 // Kullanıcı Rolünü ve Bilgilerini Güncelle (Session Senkronizasyonu)
 if ($isLoggedIn && isset($pdo)) {
-    $stmt = $pdo->prepare("SELECT role, first_name, last_name FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT role, first_name, last_name, avatar_url FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $currentUser = $stmt->fetch();
     if ($currentUser) {
         $_SESSION['user_role'] = $currentUser['role'];
         $_SESSION['user_name'] = $currentUser['first_name'] . ' ' . $currentUser['last_name'];
+        $_SESSION['user_avatar'] = $currentUser['avatar_url'];
     }
 
     // Okunmamış Mesaj Sayısı
@@ -242,7 +243,11 @@ if (isset($pdo)) {
 
                     <div class="relative group">
                         <button class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors py-2">
-                            <span class="material-symbols-outlined">account_circle</span>
+                            <?php if (!empty($_SESSION['user_avatar'])): ?>
+                                <img src="<?= htmlspecialchars($_SESSION['user_avatar']) ?>" alt="<?= htmlspecialchars($userName) ?>" class="w-8 h-8 rounded-full object-cover border border-slate-200">
+                            <?php else: ?>
+                                <span class="material-symbols-outlined text-2xl">account_circle</span>
+                            <?php endif; ?>
                             <span><?= htmlspecialchars($userName) ?></span>
                             <span class="material-symbols-outlined text-sm">expand_more</span>
                         </button>

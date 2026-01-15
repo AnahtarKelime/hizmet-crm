@@ -113,7 +113,7 @@ require_once 'includes/header.php';
             </div>
         </form>
 
-        <?php if (($googleLoginActive && !empty($googleClientId)) || ($facebookLoginActive && !empty($facebookAppId))): ?>
+        <?php if ($googleLoginActive || $facebookLoginActive): ?>
             <div class="relative my-6">
                 <div class="absolute inset-0 flex items-center">
                     <div class="w-full border-t border-slate-200"></div>
@@ -124,17 +124,17 @@ require_once 'includes/header.php';
             </div>
 
             <div class="space-y-3">
-                <?php if ($facebookLoginActive && !empty($facebookAppId)): ?>
-                <a href="facebook-login.php" class="group relative flex w-full justify-center rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">
-                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
-                    Facebook ile Giriş Yap
+                <?php if ($googleLoginActive): ?>
+                <a href="google-login.php" class="group relative flex w-full justify-center rounded-xl bg-[#DB4437] px-4 py-3 text-sm font-bold text-white hover:bg-[#c53929] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all shadow-sm">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,5 12,5C14.6,5 16.1,6.05 17.1,6.95L19.25,4.85C17.1,2.95 14.8,2 12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 21.7,17.52 21.7,12.33C21.7,11.87 21.5,11.35 21.35,11.1Z"></path></svg>
+                    Google ile Giriş Yap
                 </a>
                 <?php endif; ?>
 
-                <?php if ($googleLoginActive && !empty($googleClientId)): ?>
-                <a href="google-login.php" class="group relative flex w-full justify-center rounded-xl bg-white border border-slate-200 px-4 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50 focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">
-                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,5 12,5C14.6,5 16.1,6.05 17.1,6.95L19.25,4.85C17.1,2.95 14.8,2 12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 21.7,17.52 21.7,12.33C21.7,11.87 21.5,11.35 21.35,11.1Z"></path></svg>
-                    Google ile Giriş Yap
+                <?php if ($facebookLoginActive): ?>
+                <a href="facebook-login.php" class="group relative flex w-full justify-center rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">
+                    <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
+                    Facebook ile Giriş Yap
                 </a>
                 <?php endif; ?>
             </div>

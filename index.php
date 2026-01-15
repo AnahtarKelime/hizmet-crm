@@ -18,6 +18,24 @@ try {
     // Hata durumunda boş dizi kalır
 }
 
+// Kullanıcı giriş yapmışsa kayıtlı konumunu çek
+$userLocationText = 'İstanbul'; // Varsayılan
+$userLocationSlug = '';
+
+if (isset($_SESSION['user_id'])) {
+    $stmt = $pdo->prepare("SELECT city, district FROM users WHERE id = ?");
+    $stmt->execute([$_SESSION['user_id']]);
+    $userLoc = $stmt->fetch();
+
+    if ($userLoc && !empty($userLoc['city']) && !empty($userLoc['district'])) {
+        $userLocationText = $userLoc['district'] . ' / ' . $userLoc['city'];
+        // Bu il/ilçe kombinasyonu için uygun bir slug bul (örn: ilk mahalle)
+        $stmtSlug = $pdo->prepare("SELECT slug FROM locations WHERE city = ? AND district = ? LIMIT 1");
+        $stmtSlug->execute([$userLoc['city'], $userLoc['district']]);
+        $userLocationSlug = $stmtSlug->fetchColumn() ?: '';
+    }
+}
+
 require_once 'includes/header.php';
 ?>
 
@@ -47,8 +65,8 @@ require_once 'includes/header.php';
                 <!-- Lokasyon Arama -->
                 <div class="flex-1 flex items-center px-4 group relative">
                     <span class="material-symbols-outlined text-slate-400 group-focus-within:text-primary">location_on</span>
-                    <input id="location-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Şehir veya İlçe" type="text" value="İstanbul"/>
-                    <input type="hidden" id="selected-location-slug" name="location_slug">
+                    <input id="location-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Şehir veya İlçe" type="text" value="<?= htmlspecialchars($userLocationText) ?>"/>
+                    <input type="hidden" id="selected-location-slug" name="location_slug" value="<?= htmlspecialchars($userLocationSlug) ?>">
                     <!-- Lokasyon Sonuçları Dropdown -->
                     <ul id="location-results" class="absolute top-full left-0 w-full bg-white dark:bg-slate-800 rounded-xl shadow-xl mt-2 hidden overflow-hidden border border-slate-100 dark:border-slate-700 z-50 max-h-60 overflow-y-auto"></ul>
                 </div>

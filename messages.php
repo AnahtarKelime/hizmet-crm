@@ -118,8 +118,8 @@ $chatListStmt = $pdo->prepare("
     SELECT 
         o.id as offer_id, 
         d.title as demand_title,
-        u_provider.id as provider_id, u_provider.first_name as p_name, u_provider.last_name as p_surname, pd.business_name,
-        u_customer.id as customer_id, u_customer.first_name as c_name, u_customer.last_name as c_surname,
+        u_provider.id as provider_id, u_provider.first_name as p_name, u_provider.last_name as p_surname, u_provider.avatar_url as p_avatar, pd.business_name,
+        u_customer.id as customer_id, u_customer.first_name as c_name, u_customer.last_name as c_surname, u_customer.avatar_url as c_avatar,
         (SELECT message FROM messages WHERE offer_id = o.id AND ( (sender_id = :uid_lm_s AND deleted_by_sender = 0) OR (receiver_id = :uid_lm_r AND deleted_by_receiver = 0) ) ORDER BY created_at DESC LIMIT 1) as last_message,
         (SELECT created_at FROM messages WHERE offer_id = o.id AND ( (sender_id = :uid_lmt_s AND deleted_by_sender = 0) OR (receiver_id = :uid_lmt_r AND deleted_by_receiver = 0) ) ORDER BY created_at DESC LIMIT 1) as last_message_time,
         (SELECT COUNT(*) FROM messages WHERE offer_id = o.id AND receiver_id = :uid_uc AND is_read = 0 AND deleted_by_receiver = 0) as unread_count
@@ -157,8 +157,8 @@ if ($offerId) {
         SELECT 
             o.*, 
             d.title as demand_title,
-            u_provider.id as provider_id, u_provider.first_name as p_name, u_provider.last_name as p_surname, pd.business_name,
-            u_customer.id as customer_id, u_customer.first_name as c_name, u_customer.last_name as c_surname
+            u_provider.id as provider_id, u_provider.first_name as p_name, u_provider.last_name as p_surname, u_provider.avatar_url as p_avatar, pd.business_name,
+            u_customer.id as customer_id, u_customer.first_name as c_name, u_customer.last_name as c_surname, u_customer.avatar_url as c_avatar
         FROM offers o
         JOIN demands d ON o.demand_id = d.id
         JOIN users u_provider ON o.user_id = u_provider.id
@@ -175,6 +175,7 @@ if ($offerId) {
         $isCustomer = ($userId == $activeChat['customer_id']);
         $chatPartnerId = $isProvider ? $activeChat['customer_id'] : $activeChat['provider_id'];
         $chatPartnerName = $isProvider ? $activeChat['c_name'] . ' ' . $activeChat['c_surname'] : ($activeChat['business_name'] ?: $activeChat['p_name'] . ' ' . $activeChat['p_surname']);
+        $chatPartnerAvatar = $isProvider ? $activeChat['c_avatar'] : $activeChat['p_avatar'];
         
         // Mesajları Çek
         $stmt = $pdo->prepare("
@@ -240,24 +241,36 @@ if ($offerId) {
                         <?php foreach ($chatList as $chat): 
                             $isProviderInList = ($userId == $chat['provider_id']);
                             $listPartnerName = $isProviderInList ? $chat['c_name'] . ' ' . $chat['c_surname'] : ($chat['business_name'] ?: $chat['p_name'] . ' ' . $chat['p_surname']);
+                            $listPartnerAvatar = $isProviderInList ? $chat['c_avatar'] : $chat['p_avatar'];
                             $isActive = ($offerId == $chat['offer_id']);
                         ?>
                         <li class="group relative">
                             <a href="messages.php?offer_id=<?= $chat['offer_id'] ?>" class="block p-4 hover:bg-slate-50 dark:hover:bg-slate-800 transition-colors <?= $isActive ? 'bg-slate-50 dark:bg-slate-800 border-l-4 border-primary' : '' ?>">
-                                <div class="flex justify-between items-start mb-1">
-                                    <h4 class="font-bold text-sm text-slate-800 dark:text-white truncate pr-2"><?= htmlspecialchars($listPartnerName) ?></h4>
-                                    <?php if ($chat['last_message_time']): ?>
-                                        <span class="text-[10px] text-slate-400 whitespace-nowrap"><?= date('d.m H:i', strtotime($chat['last_message_time'])) ?></span>
+                                <div class="flex items-center gap-3">
+                                    <?php if ($listPartnerAvatar): ?>
+                                        <img src="<?= htmlspecialchars($listPartnerAvatar) ?>" class="w-10 h-10 rounded-full object-cover border border-slate-200" alt="">
+                                    <?php else: ?>
+                                        <div class="w-10 h-10 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-sm">
+                                            <?= mb_substr($listPartnerName, 0, 1) ?>
+                                        </div>
                                     <?php endif; ?>
-                                </div>
-                                <p class="text-xs text-slate-500 truncate mb-1"><?= htmlspecialchars($chat['demand_title']) ?></p>
-                                <div class="flex justify-between items-center">
-                                    <p class="text-xs text-slate-400 truncate max-w-[140px]">
-                                        <?= htmlspecialchars($chat['last_message'] ?? 'Henüz mesaj yok') ?>
-                                    </p>
-                                    <?php if ($chat['unread_count'] > 0): ?>
-                                        <span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full"><?= $chat['unread_count'] ?></span>
-                                    <?php endif; ?>
+                                    <div class="flex-1 min-w-0">
+                                        <div class="flex justify-between items-start mb-0.5">
+                                            <h4 class="font-bold text-sm text-slate-800 dark:text-white truncate pr-2"><?= htmlspecialchars($listPartnerName) ?></h4>
+                                            <?php if ($chat['last_message_time']): ?>
+                                                <span class="text-[10px] text-slate-400 whitespace-nowrap"><?= date('d.m H:i', strtotime($chat['last_message_time'])) ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                        <p class="text-xs text-slate-500 truncate mb-0.5"><?= htmlspecialchars($chat['demand_title']) ?></p>
+                                        <div class="flex justify-between items-center">
+                                            <p class="text-xs text-slate-400 truncate max-w-[140px]">
+                                                <?= htmlspecialchars($chat['last_message'] ?? 'Henüz mesaj yok') ?>
+                                            </p>
+                                            <?php if ($chat['unread_count'] > 0): ?>
+                                                <span class="bg-red-500 text-white text-[10px] font-bold px-1.5 py-0.5 rounded-full"><?= $chat['unread_count'] ?></span>
+                                            <?php endif; ?>
+                                        </div>
+                                    </div>
                                 </div>
                             </a>
                             <a href="messages.php?delete_offer_id=<?= $chat['offer_id'] ?>" onclick="return confirm('Bu sohbeti silmek istediğinize emin misiniz? Tüm mesajlar kalıcı olarak silinecektir.')" class="absolute top-3 right-3 p-1.5 rounded-full text-slate-400 hover:bg-red-100 hover:text-red-600 opacity-0 group-hover:opacity-100 transition-all z-10" title="Sohbeti Sil">
@@ -286,9 +299,13 @@ if ($offerId) {
                 <!-- Chat Header -->
                 <div class="p-4 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/50">
                     <div class="flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
-                            <?= mb_substr($chatPartnerName, 0, 1) ?>
-                        </div>
+                        <?php if ($chatPartnerAvatar): ?>
+                            <img src="<?= htmlspecialchars($chatPartnerAvatar) ?>" class="w-10 h-10 rounded-full object-cover border border-slate-200" alt="">
+                        <?php else: ?>
+                            <div class="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-white font-bold text-lg">
+                                <?= mb_substr($chatPartnerName, 0, 1) ?>
+                            </div>
+                        <?php endif; ?>
                         <div>
                             <h3 class="font-bold text-slate-900 dark:text-white leading-none"><?= htmlspecialchars($chatPartnerName) ?></h3>
                             <p class="text-xs text-slate-500 font-medium mt-1 flex items-center gap-1">
@@ -316,9 +333,13 @@ if ($offerId) {
                         ?>
                             <div class="flex items-end gap-3 max-w-[80%] <?= $isMe ? 'ml-auto justify-end' : '' ?>">
                                 <?php if (!$isMe): ?>
-                                    <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0">
-                                        <?= mb_substr($chatPartnerName, 0, 1) ?>
-                                    </div>
+                                    <?php if ($chatPartnerAvatar): ?>
+                                        <img src="<?= htmlspecialchars($chatPartnerAvatar) ?>" class="w-8 h-8 rounded-full object-cover border border-slate-200 shrink-0" alt="">
+                                    <?php else: ?>
+                                        <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-slate-500 font-bold text-xs shrink-0">
+                                            <?= mb_substr($chatPartnerName, 0, 1) ?>
+                                        </div>
+                                    <?php endif; ?>
                                 <?php endif; ?>
                                 
                                 <div class="flex flex-col gap-1 <?= $isMe ? 'items-end' : 'items-start' ?>">
@@ -371,9 +392,13 @@ if ($offerId) {
                     <div class="p-6">
                         <div class="flex items-start justify-between mb-6">
                             <div class="flex gap-4">
-                                <div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xl border border-slate-200">
-                                    <?= mb_substr($chatPartnerName, 0, 1) ?>
-                                </div>
+                                <?php if ($chatPartnerAvatar): ?>
+                                    <img src="<?= htmlspecialchars($chatPartnerAvatar) ?>" class="w-12 h-12 rounded-lg object-cover border border-slate-200" alt="">
+                                <?php else: ?>
+                                    <div class="w-12 h-12 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 font-bold text-xl border border-slate-200">
+                                        <?= mb_substr($chatPartnerName, 0, 1) ?>
+                                    </div>
+                                <?php endif; ?>
                                 <div>
                                     <h4 class="font-bold text-slate-900 dark:text-white"><?= htmlspecialchars($chatPartnerName) ?></h4>
                                     <div class="flex items-center gap-1 mt-1 text-primary">

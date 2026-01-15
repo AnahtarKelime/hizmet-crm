@@ -36,17 +36,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $businessName = $_POST['business_name'] ?? null;
             $bio = $_POST['bio'] ?? null;
             $subType = $_POST['subscription_type'] ?? 'free';
+            $offerCredit = $_POST['offer_credit'] ?? 0;
             
             // Provider kaydı var mı kontrol et
             $checkStmt = $pdo->prepare("SELECT id FROM provider_details WHERE user_id = ?");
             $checkStmt->execute([$userId]);
             
             if ($checkStmt->fetch()) {
-                $pStmt = $pdo->prepare("UPDATE provider_details SET business_name=?, bio=?, subscription_type=? WHERE user_id=?");
-                $pStmt->execute([$businessName, $bio, $subType, $userId]);
+                $pStmt = $pdo->prepare("UPDATE provider_details SET business_name=?, bio=?, subscription_type=?, remaining_offer_credit=? WHERE user_id=?");
+                $pStmt->execute([$businessName, $bio, $subType, $offerCredit, $userId]);
             } else {
-                $pStmt = $pdo->prepare("INSERT INTO provider_details (user_id, business_name, bio, subscription_type) VALUES (?, ?, ?, ?)");
-                $pStmt->execute([$userId, $businessName, $bio, $subType]);
+                $pStmt = $pdo->prepare("INSERT INTO provider_details (user_id, business_name, bio, subscription_type, remaining_offer_credit) VALUES (?, ?, ?, ?, ?)");
+                $pStmt->execute([$userId, $businessName, $bio, $subType, $offerCredit]);
             }
 
             // Hizmet Bölgelerini Güncelle
@@ -91,7 +92,7 @@ if (!$userId) {
 
 // Kullanıcı Bilgilerini Çek
 $stmt = $pdo->prepare("
-    SELECT u.*, pd.business_name, pd.bio, pd.subscription_type, pd.subscription_ends_at 
+    SELECT u.*, pd.business_name, pd.bio, pd.subscription_type, pd.subscription_ends_at, pd.remaining_offer_credit 
     FROM users u 
     LEFT JOIN provider_details pd ON u.id = pd.user_id 
     WHERE u.id = ?
@@ -136,6 +137,18 @@ if ($user['role'] === 'provider') {
     $stmtCat->execute([$userId]);
     $providerCategoryId = $stmtCat->fetchColumn();
 }
+
+// Kullanıcının Taleplerini Çek
+$stmtDemands = $pdo->prepare("
+    SELECT d.*, c.name as category_name, l.city, l.district 
+    FROM demands d
+    LEFT JOIN categories c ON d.category_id = c.id
+    LEFT JOIN locations l ON d.location_id = l.id
+    WHERE d.user_id = ?
+    ORDER BY d.created_at DESC
+");
+$stmtDemands->execute([$userId]);
+$userDemands = $stmtDemands->fetchAll();
 ?>
 
 <div class="max-w-4xl mx-auto">
@@ -194,6 +207,32 @@ if ($user['role'] === 'provider') {
         </div>
 
         <?php if ($user['role'] === 'provider'): ?>
+        <div class="p-6 border border-slate-200 rounded-lg bg-slate-50 space-y-4">
+            <h3 class="font-bold text-slate-800 border-b border-slate-200 pb-2">Hizmet Veren Detayları</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">İşletme Adı</label>
+                    <input type="text" name="business_name" value="<?= htmlspecialchars($user['business_name'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Abonelik Tipi</label>
+                    <select name="subscription_type" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="free" <?= ($user['subscription_type'] ?? 'free') == 'free' ? 'selected' : '' ?>>Ücretsiz</option>
+                        <option value="premium" <?= ($user['subscription_type'] ?? '') == 'premium' ? 'selected' : '' ?>>Premium</option>
+                    </select>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Biyografi</label>
+                    <textarea name="bio" rows="3" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"><?= htmlspecialchars($user['bio'] ?? '') ?></textarea>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Teklif Kredisi (Bakiye)</label>
+                    <input type="number" name="offer_credit" value="<?= htmlspecialchars($user['remaining_offer_credit'] ?? 0) ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-500 mt-1">Sınırsız kredi için -1 giriniz.</p>
+                </div>
+            </div>
+        </div>
+
         <div class="p-6 border border-slate-200 rounded-lg bg-slate-50 space-y-4">
             <h3 class="font-bold text-slate-800 border-b border-slate-200 pb-2">Hizmet Kategorisi</h3>
             <div>
@@ -314,6 +353,78 @@ if ($user['role'] === 'provider') {
         </div>
     </div>
     <?php endif; ?>
+
+    <!-- Kullanıcı Talep Geçmişi -->
+    <div class="mt-10">
+        <h3 class="text-xl font-bold text-slate-800 mb-6 flex items-center gap-2">
+            <span class="material-symbols-outlined text-indigo-600">format_list_bulleted</span>
+            Hizmet Talepleri
+        </h3>
+        
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <table class="w-full text-left text-sm text-slate-600">
+                <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
+                    <tr>
+                        <th class="px-6 py-4">ID</th>
+                        <th class="px-6 py-4">Başlık</th>
+                        <th class="px-6 py-4">Kategori</th>
+                        <th class="px-6 py-4">Lokasyon</th>
+                        <th class="px-6 py-4">Tarih</th>
+                        <th class="px-6 py-4">Durum</th>
+                        <th class="px-6 py-4 text-right">İşlem</th>
+                    </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100">
+                    <?php if (empty($userDemands)): ?>
+                        <tr>
+                            <td colspan="7" class="px-6 py-8 text-center text-slate-500">Bu kullanıcı henüz hiç talep oluşturmamış.</td>
+                        </tr>
+                    <?php else: ?>
+                        <?php foreach($userDemands as $demand): ?>
+                        <tr class="hover:bg-slate-50 transition-colors">
+                            <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $demand['id'] ?></td>
+                            <td class="px-6 py-4 font-medium text-slate-800">
+                                <?= htmlspecialchars($demand['title']) ?>
+                            </td>
+                            <td class="px-6 py-4">
+                                <?= htmlspecialchars($demand['category_name']) ?>
+                            </td>
+                            <td class="px-6 py-4 text-xs text-slate-500">
+                                <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district']) ?>
+                            </td>
+                            <td class="px-6 py-4 text-xs text-slate-500">
+                                <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
+                            </td>
+                            <td class="px-6 py-4">
+                                <?php
+                                $statusClass = match($demand['status']) {
+                                    'approved' => 'bg-green-100 text-green-700',
+                                    'completed' => 'bg-blue-100 text-blue-700',
+                                    'cancelled' => 'bg-red-100 text-red-700',
+                                    default => 'bg-yellow-100 text-yellow-700'
+                                };
+                                $statusLabel = match($demand['status']) {
+                                    'approved' => 'Onaylandı',
+                                    'completed' => 'Tamamlandı',
+                                    'cancelled' => 'İptal',
+                                    'pending' => 'Beklemede',
+                                    default => $demand['status']
+                                };
+                                ?>
+                                <span class="px-2 py-1 rounded text-xs font-bold <?= $statusClass ?>"><?= $statusLabel ?></span>
+                            </td>
+                            <td class="px-6 py-4 text-right">
+                                <a href="demand-details.php?id=<?= $demand['id'] ?>" target="_blank" class="text-indigo-600 hover:text-indigo-800 font-medium text-xs bg-indigo-50 px-3 py-1.5 rounded transition-colors">
+                                    Detay
+                                </a>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 
 <script>

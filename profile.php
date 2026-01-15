@@ -26,9 +26,13 @@ if ($user['role'] === 'provider') {
 
 <main class="max-w-4xl mx-auto px-4 py-12 min-h-[60vh]">
     <div class="flex items-center gap-6 mb-10">
-        <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-4xl border-4 border-white shadow-md">
-            <?= mb_substr($user['first_name'], 0, 1) . mb_substr($user['last_name'], 0, 1) ?>
-        </div>
+        <?php if (!empty($user['avatar_url'])): ?>
+            <img src="<?= htmlspecialchars($user['avatar_url']) ?>" alt="Profil Resmi" class="w-24 h-24 rounded-full object-cover border-4 border-white shadow-md">
+        <?php else: ?>
+            <div class="w-24 h-24 bg-slate-100 rounded-full flex items-center justify-center text-slate-400 font-black text-4xl border-4 border-white shadow-md">
+                <?= mb_substr($user['first_name'], 0, 1) . mb_substr($user['last_name'], 0, 1) ?>
+            </div>
+        <?php endif; ?>
         <div>
             <h1 class="text-3xl font-black text-slate-800"><?= htmlspecialchars($user['first_name'] . ' ' . $user['last_name']) ?></h1>
             <p class="text-slate-500"><?= htmlspecialchars($user['email']) ?></p>

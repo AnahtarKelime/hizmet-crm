@@ -1,5 +1,7 @@
 USE `hizmet_crm`;
 
+DROP TABLE IF EXISTS `menu_items`;
+
 CREATE TABLE `menu_items` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `menu_location` varchar(50) NOT NULL COMMENT 'e.g., header, footer',
@@ -19,7 +21,7 @@ INSERT INTO `menu_items` (`menu_location`, `title`, `url`, `visibility`, `sort_o
 ('header', 'Nasıl Çalışır?', 'nasil-calisir.php', 'all', 30),
 ('header', 'Taleplerim', 'my-demands.php', 'customer', 20),
 ('header', 'İş Fırsatları', 'provider/leads.php', 'provider', 20),
-('footer', 'Hakkımızda', '#', 'all', 10),
-('footer', 'Kullanım Koşulları', '#', 'all', 20),
-('footer', 'Gizlilik Politikası', '#', 'all', 30),
-('footer', 'İletişim', '#', 'all', 40);
+('footer', 'Hakkımızda', 'hakkimizda.php', 'all', 10),
+('footer', 'Kullanım Koşulları', 'kullanim-kosullari.php', 'all', 20),
+('footer', 'Gizlilik Politikası', 'gizlilik-politikasi.php', 'all', 30),
+('footer', 'İletişim', 'iletisim.php', 'all', 40);

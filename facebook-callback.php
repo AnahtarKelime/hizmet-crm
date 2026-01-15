@@ -52,15 +52,21 @@ if (isset($_GET['code'])) {
             $stmt->execute([$facebookId]);
             $user = $stmt->fetch();
 
-            // Facebook ID ile bulunamazsa, e-posta ile kontrol et
-            if (!$user) {
+            if ($user) {
+                // Kullanıcı zaten Facebook ile bağlı. Avatarı yoksa güncelle.
+                if (empty($user['avatar_url']) && !empty($avatarUrl)) {
+                    $updateStmt = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+                    $updateStmt->execute([$avatarUrl, $user['id']]);
+                }
+            } else {
+                // Facebook ID ile bulunamazsa, e-posta ile kontrol et
                 $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
 
                 // E-posta ile bulunduysa, Facebook ID'yi bu kullanıcıya bağla
                 if ($user) {
-                    $updateStmt = $pdo->prepare("UPDATE users SET facebook_id = ?, avatar_url = IF(avatar_url IS NULL, ?, avatar_url) WHERE id = ?");
+                    $updateStmt = $pdo->prepare("UPDATE users SET facebook_id = ?, avatar_url = IF(avatar_url IS NULL OR avatar_url = '', ?, avatar_url) WHERE id = ?");
                     $updateStmt->execute([$facebookId, $avatarUrl, $user['id']]);
                 }
             }
@@ -85,7 +91,13 @@ if (isset($_GET['code'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 $_SESSION['user_role'] = $user['role'];
-                header('Location: index.php');
+                
+                // Eksik bilgi kontrolü
+                if (empty($user['phone']) || empty($user['city']) || empty($user['district'])) {
+                    header('Location: complete-profile.php');
+                } else {
+                    header('Location: index.php');
+                }
                 exit();
             } else {
                 header('Location: login.php?error=social_login_failed');

@@ -55,15 +55,21 @@ if (isset($_GET['code'])) {
             $stmt->execute([$googleId]);
             $user = $stmt->fetch();
 
-            // Google ID ile bulunamazsa, e-posta ile kontrol et
-            if (!$user) {
+            if ($user) {
+                // Kullanıcı zaten Google ile bağlı. Avatarı yoksa güncelle.
+                if (empty($user['avatar_url']) && !empty($avatarUrl)) {
+                    $updateStmt = $pdo->prepare("UPDATE users SET avatar_url = ? WHERE id = ?");
+                    $updateStmt->execute([$avatarUrl, $user['id']]);
+                }
+            } else {
+                // Google ID ile bulunamazsa, e-posta ile kontrol et
                 $stmt = $pdo->prepare("SELECT * FROM users WHERE email = ?");
                 $stmt->execute([$email]);
                 $user = $stmt->fetch();
 
                 // E-posta ile bulunduysa, Google ID'yi bu kullanıcıya bağla
                 if ($user) {
-                    $updateStmt = $pdo->prepare("UPDATE users SET google_id = ?, avatar_url = ? WHERE id = ?");
+                    $updateStmt = $pdo->prepare("UPDATE users SET google_id = ?, avatar_url = IF(avatar_url IS NULL OR avatar_url = '', ?, avatar_url) WHERE id = ?");
                     $updateStmt->execute([$googleId, $avatarUrl, $user['id']]);
                 }
             }
@@ -88,7 +94,13 @@ if (isset($_GET['code'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 $_SESSION['user_role'] = $user['role'];
-                header('Location: index.php');
+                
+                // Eksik bilgi kontrolü
+                if (empty($user['phone']) || empty($user['city']) || empty($user['district'])) {
+                    header('Location: complete-profile.php');
+                } else {
+                    header('Location: index.php');
+                }
                 exit();
             } else {
                 // Bu durumun olmaması gerekir
