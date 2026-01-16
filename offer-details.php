@@ -1,5 +1,6 @@
 <?php
 require_once 'config/db.php';
+require_once 'includes/mail-helper.php';
 
 // Oturumu başlat (header.php'den önce işlem yaptığımız için gerekli)
 if (session_status() === PHP_SESSION_NONE) {
@@ -51,6 +52,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$offer['demand_id']]);
             
             $pdo->commit();
+
+            // Hizmet Verene Mail Gönder
+            sendEmail($offer['email'], 'offer_accepted', [
+                'provider_name' => $offer['first_name'] . ' ' . $offer['last_name'],
+                'demand_title' => $offer['demand_title'],
+                'link' => getBaseUrl() . '/provider/won-jobs.php'
+            ]);
+
             $successMsg = "Teklif başarıyla kabul edildi. Hizmet veren ile iletişime geçebilirsiniz.";
             // Sayfayı yenile
             header("Refresh:2");

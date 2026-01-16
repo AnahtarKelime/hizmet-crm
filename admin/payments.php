@@ -1,5 +1,6 @@
 <?php
 require_once '../config/db.php';
+require_once '../includes/mail-helper.php';
 require_once 'includes/header.php';
 
 // Ödeme Onaylama İşlemi
@@ -45,6 +46,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_payment'])) {
 
                 // İşlem Durumunu Güncelle
                 $pdo->prepare("UPDATE transactions SET status = 'approved' WHERE id = ?")->execute([$transactionId]);
+                
+                // Hizmet Verene Mail Gönder
+                $stmtUser = $pdo->prepare("SELECT email, first_name, last_name FROM users WHERE id = ?");
+                $stmtUser->execute([$transaction['user_id']]);
+                $user = $stmtUser->fetch();
+
+                if ($user) {
+                    sendEmail($user['email'], 'payment_approved', [
+                        'name' => $user['first_name'] . ' ' . $user['last_name'],
+                        'amount' => number_format($transaction['amount'], 2, ',', '.'),
+                        'package_name' => $package['name']
+                    ]);
+                }
                 
                 $successMsg = "Ödeme onaylandı ve paket kullanıcıya tanımlandı.";
             }

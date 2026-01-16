@@ -162,19 +162,19 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">article</span>
                 Sayfa Yönetimi
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="email-templates.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'email-template') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">mark_email_unread</span>
                 Mail Servisleri
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="social-media.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'social-media') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">share</span>
                 Sosyal Medya
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="appearance.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'appearance') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">palette</span>
                 Görünüm & CSS
             </a>
-            <a href="#" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-slate-400 hover:bg-slate-800 hover:text-white">
+            <a href="seo-settings.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'seo-settings') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">search</span>
                 SEO Ayarları
             </a>

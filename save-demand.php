@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/db.php';
+require_once 'includes/mail-helper.php';
 
 // Kullanıcı giriş kontrolü
 if (!isset($_SESSION['user_id'])) {
@@ -110,6 +111,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // İşlemi onayla
         $pdo->commit();
+
+        // --- HİZMET VERENLERE BİLDİRİM (New Lead) ---
+        // İlgili kategoride ve şehirde hizmet verenleri bul
+        // Not: Çok fazla kullanıcı varsa bu işlem arka planda (queue) yapılmalıdır.
+        // Şimdilik basitçe ilk 20 kişiye gönderelim.
+        $stmtProviders = $pdo->prepare("
+            SELECT u.email, u.first_name, u.last_name 
+            FROM users u
+            JOIN provider_service_categories psc ON u.id = psc.user_id
+            JOIN provider_service_areas psa ON u.id = psa.user_id
+            WHERE u.role = 'provider' 
+            AND psc.category_id = ? 
+            AND psa.city LIKE ?
+            LIMIT 20
+        ");
+        // Şehir eşleşmesi için basit like kullanıyoruz, daha gelişmiş yapılabilir
+        $citySearch = explode(' ', trim($locationTitlePart))[0] ?? ''; // İlk kelimeyi al (Örn: İstanbul)
+        $stmtProviders->execute([$categoryId, "%$citySearch%"]);
+        $providers = $stmtProviders->fetchAll();
+
+        foreach ($providers as $prov) {
+            sendEmail($prov['email'], 'new_lead', [
+                'name' => $prov['first_name'] . ' ' . $prov['last_name'],
+                'demand_title' => $title,
+                'link' => getBaseUrl() . '/provider/leads.php'
+            ]);
+        }
 
         // Başarılı işlem sonrası yönlendirme
         header("Location: demand-details.php?id=$demandId&status=success&msg=Talep+başarıyla+oluşturuldu");

@@ -1,6 +1,7 @@
 <?php
 session_start();
 require_once 'config/db.php';
+require_once 'includes/mail-helper.php';
 
 // Google ve Facebook ayarlarını çek
 $settings = [];
@@ -76,6 +77,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
 
                 $pdo->commit();
+
+                // Hoşgeldin Maili Gönder
+                sendEmail($email, 'welcome', ['name' => $firstName . ' ' . $lastName]);
 
                 // Otomatik giriş
                 $_SESSION['user_id'] = $userId;

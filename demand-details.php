@@ -1,5 +1,6 @@
 <?php
 require_once 'config/db.php';
+require_once 'includes/mail-helper.php';
 
 // Oturumu başlat (header.php'den önce işlem yaptığımız için gerekli)
 if (session_status() === PHP_SESSION_NONE) {
@@ -90,6 +91,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_offer'])) {
             $stmt->execute([$userId]);
         }
         $pdo->commit();
+
+        // Müşteriye Mail Gönder
+        sendEmail($demand['email'], 'new_offer', [
+            'name' => $demand['first_name'] . ' ' . $demand['last_name'],
+            'demand_title' => $demand['title'],
+            'link' => getBaseUrl() . '/demand-details.php?id=' . $demandId
+        ]);
+
         $successMsg = "Teklifiniz başarıyla gönderildi.";
         $hasOffered = true; // Sayfa yenilenmeden durumu güncelle
     }

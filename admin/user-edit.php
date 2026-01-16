@@ -1,5 +1,6 @@
 <?php
 require_once '../config/db.php';
+require_once '../includes/mail-helper.php';
 
 
 // Güncelleme İşlemi
@@ -42,12 +43,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $checkStmt = $pdo->prepare("SELECT id FROM provider_details WHERE user_id = ?");
             $checkStmt->execute([$userId]);
             
+            // Eski durumu kontrol et (Mail göndermek için)
+            $oldStatus = 'none';
             if ($checkStmt->fetch()) {
+                $stmtStatus = $pdo->prepare("SELECT application_status FROM provider_details WHERE user_id = ?");
+                $stmtStatus->execute([$userId]);
+                $oldStatus = $stmtStatus->fetchColumn();
+
                 $pStmt = $pdo->prepare("UPDATE provider_details SET business_name=?, bio=?, subscription_type=?, remaining_offer_credit=? WHERE user_id=?");
                 $pStmt->execute([$businessName, $bio, $subType, $offerCredit, $userId]);
             } else {
                 $pStmt = $pdo->prepare("INSERT INTO provider_details (user_id, business_name, bio, subscription_type, remaining_offer_credit) VALUES (?, ?, ?, ?, ?)");
                 $pStmt->execute([$userId, $businessName, $bio, $subType, $offerCredit]);
+            }
+
+            // Eğer durum 'approved' olduysa mail gönder (Burada formda application_status alanı olmadığı için varsayılan olarak provider rolüne geçişi onay kabul edebiliriz veya form'a status alanı ekleyebiliriz. Mevcut kodda status alanı yok, bu yüzden rol provider ise ve verified ise onaylandı sayabiliriz.)
+            // Ancak daha doğru olanı, admin panelinde bir "Onayla" butonu olmasıdır. Mevcut yapıda rol 'provider' yapıldığında onaylanmış sayalım.
+            if ($role === 'provider' && $isVerified && $oldStatus !== 'approved') {
+                 sendEmail($email, 'provider_approved', [
+                    'name' => $firstName . ' ' . $lastName,
+                    'link' => getBaseUrl() . '/provider/leads.php'
+                ]);
+                // Provider details tablosunda statusu güncellemek gerekebilir
+                $pdo->prepare("UPDATE provider_details SET application_status = 'approved' WHERE user_id = ?")->execute([$userId]);
             }
 
             // Hizmet Bölgelerini Güncelle

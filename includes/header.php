@@ -23,6 +23,37 @@ if ($isLoggedIn && isset($pdo)) {
     $stmtMsg = $pdo->prepare("SELECT COUNT(*) FROM messages WHERE receiver_id = ? AND is_read = 0 AND deleted_by_receiver = 0");
     $stmtMsg->execute([$_SESSION['user_id']]);
     $unreadCount = $stmtMsg->fetchColumn();
+
+    // Bildirimler (Son gelen teklifler)
+    $notifications = [];
+    $unreadNotificationCount = 0;
+    
+    if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'customer') {
+        // Son 5 teklifi çek
+        $stmtNotif = $pdo->prepare("
+            SELECT 
+                o.id as offer_id, 
+                o.created_at, 
+                o.is_read,
+                d.title as demand_title, 
+                d.id as demand_id,
+                u.first_name, u.last_name, pd.business_name
+            FROM offers o
+            JOIN demands d ON o.demand_id = d.id
+            JOIN users u ON o.user_id = u.id
+            LEFT JOIN provider_details pd ON u.id = pd.user_id
+            WHERE d.user_id = ?
+            ORDER BY o.created_at DESC
+            LIMIT 5
+        ");
+        $stmtNotif->execute([$_SESSION['user_id']]);
+        $notifications = $stmtNotif->fetchAll();
+        
+        // Okunmamış teklifleri say (is_read = 0)
+        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM offers o JOIN demands d ON o.demand_id = d.id WHERE d.user_id = ? AND o.is_read = 0");
+        $stmtCount->execute([$_SESSION['user_id']]);
+        $unreadNotificationCount = $stmtCount->fetchColumn();
+    }
 }
 
 // Site Ayarlarını Çek
@@ -39,6 +70,8 @@ if (isset($pdo)) {
 }
 $siteTitle = $siteSettings['site_title'] ?? 'iyiteklif';
 $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul';
+$siteKeywords = $siteSettings['site_keywords'] ?? '';
+$siteFavicon = $siteSettings['site_favicon'] ?? '';
 
 // Menüleri Çek
 $headerMenuItems = [];
@@ -53,6 +86,13 @@ if (isset($pdo)) {
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
     <title><?php echo isset($pageTitle) ? $pageTitle . ' | ' . htmlspecialchars($siteTitle) : htmlspecialchars($siteTitle) . ' | ' . htmlspecialchars($siteDescription); ?></title>
+    <meta name="description" content="<?= htmlspecialchars($siteDescription) ?>">
+    <?php if ($siteKeywords): ?>
+    <meta name="keywords" content="<?= htmlspecialchars($siteKeywords) ?>">
+    <?php endif; ?>
+    <?php if ($siteFavicon): ?>
+    <link rel="icon" href="<?= $pathPrefix . htmlspecialchars($siteFavicon) ?>">
+    <?php endif; ?>
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
@@ -62,8 +102,8 @@ if (isset($pdo)) {
           theme: {
             extend: {
               colors: {
-                "primary": "#1a2a6c",
-                "accent": "#fbbd23",
+                "primary": "<?= $siteSettings['theme_color_primary'] ?? '#1a2a6c' ?>",
+                "accent": "<?= $siteSettings['theme_color_accent'] ?? '#fbbd23' ?>",
                 "background-light": "#f6f6f8",
                 "background-dark": "#13151f",
               },
@@ -88,6 +128,11 @@ if (isset($pdo)) {
             overflow: hidden;
         }
     </style>
+    <?php if (!empty($siteSettings['custom_css'])): ?>
+    <style>
+        <?= $siteSettings['custom_css'] ?>
+    </style>
+    <?php endif; ?>
     <?php if (isset($category) && !empty($category['tracking_code_head'])): ?>
         <?= $category['tracking_code_head'] ?>
     <?php endif; ?>
@@ -236,10 +281,84 @@ if (isset($pdo)) {
                         <?php endif; ?>
                     </a>
                     <!-- Bildirimler -->
-                    <a href="#" class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors mr-2">
-                        <span class="material-symbols-outlined text-2xl">notifications</span>
-                        <span class="absolute top-1 right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white dark:border-slate-900"></span>
-                    </a>
+                    <div class="relative group mr-2">
+                        <button class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors">
+                            <span class="material-symbols-outlined text-2xl">notifications</span>
+                            <?php if (isset($unreadNotificationCount) && $unreadNotificationCount > 0): ?>
+                                <span class="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900 notification-badge"><?= $unreadNotificationCount ?></span>
+                            <?php endif; ?>
+                        </button>
+                        
+                        <!-- Dropdown -->
+                        <div class="absolute right-0 top-full pt-2 w-80 hidden group-hover:block z-50">
+                            <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
+                                <div class="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
+                                    <h4 class="font-bold text-slate-800 dark:text-white text-sm">Bildirimler</h4>
+                                    <?php if (isset($unreadNotificationCount) && $unreadNotificationCount > 0): ?>
+                                        <span class="text-[10px] bg-red-100 text-red-600 px-2 py-0.5 rounded-full font-bold"><?= $unreadNotificationCount ?> Yeni</span>
+                                    <?php endif; ?>
+                                </div>
+                                <div class="max-h-[300px] overflow-y-auto">
+                                    <?php if (empty($notifications)): ?>
+                                        <div class="p-6 text-center text-slate-500 text-xs">
+                                            <span class="material-symbols-outlined text-3xl mb-2 opacity-50">notifications_off</span>
+                                            <p>Henüz bildiriminiz yok.</p>
+                                        </div>
+                                    <?php else: ?>
+                                        <?php foreach (array_slice($notifications, 0, 3) as $notif): ?>
+                                            <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'provider'): ?>
+                                                <!-- Hizmet Veren Bildirimi -->
+                                                <?php 
+                                                    $targetUrl = ($notif['type'] === 'offer_accepted') ? "offer-details.php?id=" . $notif['ref_id'] : "demand-details.php?id=" . $notif['ref_id'];
+                                                    $icon = ($notif['type'] === 'offer_accepted') ? 'check_circle' : 'work';
+                                                    $iconBg = ($notif['type'] === 'offer_accepted') ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600';
+                                                ?>
+                                                <a href="<?= $pathPrefix . $targetUrl ?>" onclick="markAsRead(<?= $notif['ref_id'] ?>, '<?= $notif['type'] ?>', this)" class="block p-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-50 dark:border-slate-700 last:border-0 bg-blue-50/30 dark:bg-blue-900/10">
+                                                    <div class="flex gap-3">
+                                                        <div class="w-10 h-10 rounded-full <?= $iconBg ?> flex items-center justify-center shrink-0">
+                                                            <span class="material-symbols-outlined text-lg"><?= $icon ?></span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-xs text-slate-800 dark:text-slate-200 line-clamp-2">
+                                                                <?php if ($notif['type'] === 'offer_accepted'): ?>
+                                                                    <span class="font-bold">Tebrikler!</span> "<?= htmlspecialchars($notif['title']) ?>" için teklifiniz kabul edildi.
+                                                                <?php else: ?>
+                                                                    <span class="font-bold">Yeni İş Fırsatı:</span> <?= htmlspecialchars($notif['title']) ?>
+                                                                <?php endif; ?>
+                                                            </p>
+                                                            <span class="text-[10px] text-slate-400 mt-1 block"><?= date('d.m H:i', strtotime($notif['created_at'])) ?></span>
+                                                        </div>
+                                                    </div>
+                                                </a>
+                                            <?php else: ?>
+                                                <!-- Müşteri Bildirimi -->
+                                                <a href="<?= $pathPrefix ?>demand-details.php?id=<?= $notif['demand_id'] ?>" onclick="markAsRead(<?= $notif['offer_id'] ?>, 'customer_offer', this)" class="block p-3 hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-b border-slate-50 dark:border-slate-700 last:border-0 <?= $notif['is_read'] ? '' : 'bg-blue-50/30 dark:bg-blue-900/10' ?>">
+                                                    <div class="flex gap-3">
+                                                        <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center shrink-0">
+                                                            <span class="material-symbols-outlined text-lg">local_offer</span>
+                                                        </div>
+                                                        <div>
+                                                            <p class="text-xs text-slate-800 dark:text-slate-200 line-clamp-2">
+                                                                <span class="font-bold"><?= htmlspecialchars($notif['business_name'] ?: $notif['first_name'] . ' ' . $notif['last_name']) ?></span>, 
+                                                                <span class="font-medium text-slate-600 dark:text-slate-400">"<?= htmlspecialchars($notif['demand_title']) ?>"</span> talebinize teklif verdi.
+                                                            </p>
+                                                            <span class="text-[10px] text-slate-400 mt-1 block"><?= date('d.m.Y H:i', strtotime($notif['created_at'])) ?></span>
+                                                        </div>
+                                                    </div>
+                                                </a>
+                                            <?php endif; ?>
+                                        <?php endforeach; ?>
+                                    <?php endif; ?>
+                                </div>
+                                <?php 
+                                    $allLink = (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'provider') ? 'provider/leads.php' : 'my-demands.php';
+                                ?>
+                                <a href="<?= $pathPrefix . $allLink ?>" class="block p-3 text-center text-xs font-bold text-primary hover:text-accent hover:bg-slate-50 dark:hover:bg-slate-700 transition-colors border-t border-slate-100 dark:border-slate-700">
+                                    Tüm Bildirimleri Gör
+                                </a>
+                            </div>
+                        </div>
+                    </div>
 
                     <div class="relative group">
                         <button class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors py-2">
@@ -277,6 +396,35 @@ if (isset($pdo)) {
         const menuToggle = document.getElementById('menu-toggle');
         const megaMenu = document.getElementById('mega-menu');
         const menuIcon = menuToggle?.querySelector('.material-symbols-outlined');
+
+        // Bildirimi okundu olarak işaretle
+        window.markAsRead = function(id, type, element) {
+            // UI'ı hemen güncelle (Optimistic UI)
+            if (element) {
+                element.classList.remove('bg-blue-50/30', 'dark:bg-blue-900/10');
+            }
+            
+            // Badge sayısını düşür
+            const badge = document.querySelector('.notification-badge');
+            if (badge) {
+                let count = parseInt(badge.innerText);
+                if (count > 1) {
+                    badge.innerText = count - 1;
+                } else {
+                    badge.remove();
+                }
+            }
+
+            // AJAX isteği
+            const formData = new FormData();
+            formData.append('id', id);
+            formData.append('type', type);
+
+            fetch('<?= $pathPrefix ?>ajax/mark-notification-read.php', {
+                method: 'POST',
+                body: formData
+            }).catch(err => console.error('Bildirim işaretlenemedi:', err));
+        };
 
         function closeMenu() {
             if (!megaMenu.classList.contains('hidden')) {

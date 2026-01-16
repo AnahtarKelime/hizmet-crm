@@ -1,5 +1,6 @@
 <?php
 require_once 'config/db.php';
+require_once 'includes/mail-helper.php';
 session_start();
 
 // Konuşmayı Silme İşlemi
@@ -78,6 +79,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
         $stmt = $pdo->prepare("INSERT INTO messages (offer_id, sender_id, receiver_id, message, attachment) VALUES (?, ?, ?, ?, ?)");
         $stmt->execute([$offerIdPost, $userId, $receiverId, $messageText, $attachmentPath]);
         
+        // Alıcı Bilgilerini Çek ve Mail Gönder
+        $stmtReceiver = $pdo->prepare("SELECT email, first_name, last_name FROM users WHERE id = ?");
+        $stmtReceiver->execute([$receiverId]);
+        $receiver = $stmtReceiver->fetch();
+
+        if ($receiver) {
+            sendEmail($receiver['email'], 'new_message', [
+                'name' => $receiver['first_name'] . ' ' . $receiver['last_name'],
+                'sender_name' => $_SESSION['user_name'],
+                'link' => getBaseUrl() . '/messages.php?offer_id=' . $offerIdPost
+            ]);
+        }
+
         // Sayfayı yenile (POST tekrarını önlemek için redirect)
         header("Location: messages.php?offer_id=" . $offerIdPost);
         exit;
