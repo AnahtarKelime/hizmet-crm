@@ -1,0 +1,22 @@
+User-agent: *
+Allow: /
+
+# Admin ve Özel Klasörleri Engelle
+Disallow: /admin/
+Disallow: /includes/
+Disallow: /config/
+Disallow: /uploads/
+Disallow: /provider/
+Disallow: /assets/
+
+# Kullanıcı Özel Sayfalarını Engelle (Gereksiz taramayı önlemek için)
+Disallow: /my-demands.php
+Disallow: /messages.php
+Disallow: /profile.php
+Disallow: /demand-details.php
+Disallow: /offer-details.php
+Disallow: /save-demand.php
+Disallow: /logout.php
+
+# Sitemap Yolu
+Sitemap: https://iyiteklif.com.tr/sitemap.php

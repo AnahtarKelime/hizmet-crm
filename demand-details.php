@@ -213,7 +213,11 @@ $offers = $stmt->fetchAll();
                         <span class="block text-slate-500 mb-1">Lokasyon</span>
                         <span class="font-medium text-slate-800 flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">location_on</span>
-                            <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                            <?php if (!empty($demand['address_text'])): ?>
+                                <?= htmlspecialchars($demand['address_text']) ?>
+                            <?php else: ?>
+                                <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                            <?php endif; ?>
                         </span>
                     </div>
                     <div>
@@ -224,6 +228,45 @@ $offers = $stmt->fetchAll();
                         </span>
                     </div>
                 </div>
+
+                <?php if (!empty($demand['latitude']) && !empty($demand['longitude'])): ?>
+                    <div class="mt-6 pt-4 border-t border-slate-100">
+                        <h3 class="font-bold text-slate-800 mb-3">Harita Konumu</h3>
+                        <div id="map" class="w-full h-64 rounded-xl bg-slate-50 border border-slate-200"></div>
+                        <script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&callback=initMap" async defer></script>
+                        <script>
+                            function initMap() {
+                                // Sitenizin tasarımına uygun özel harita stili (Sade/Gri Tonlar)
+                                const mapStyles = [
+                                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#e9e9e9" }, { "lightness": 17 }] },
+                                    { "featureType": "landscape", "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 20 }] },
+                                    { "featureType": "road.highway", "elementType": "geometry.fill", "stylers": [{ "color": "#ffffff" }, { "lightness": 17 }] },
+                                    { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#ffffff" }, { "lightness": 29 }, { "weight": 0.2 }] },
+                                    { "featureType": "road.arterial", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 18 }] },
+                                    { "featureType": "road.local", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 16 }] },
+                                    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 21 }] },
+                                    { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#dedede" }, { "lightness": 21 }] },
+                                    { "elementType": "labels.text.stroke", "stylers": [{ "visibility": "on" }, { "color": "#ffffff" }, { "lightness": 16 }] },
+                                    { "elementType": "labels.text.fill", "stylers": [{ "saturation": 36 }, { "color": "#333333" }, { "lightness": 40 }] },
+                                    { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
+                                    { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#f2f2f2" }, { "lightness": 19 }] },
+                                    { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "color": "#fefefe" }, { "lightness": 20 }] },
+                                    { "featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{ "color": "#fefefe" }, { "lightness": 17 }, { "weight": 1.2 }] }
+                                ];
+
+                                const position = { lat: <?= floatval($demand['latitude']) ?>, lng: <?= floatval($demand['longitude']) ?> };
+                                const map = new google.maps.Map(document.getElementById("map"), {
+                                    zoom: 15,
+                                    center: position,
+                                    disableDefaultUI: true,
+                                    zoomControl: true,
+                                    styles: mapStyles // Stili buraya ekliyoruz
+                                });
+                                new google.maps.Marker({ position: position, map: map });
+                            }
+                        </script>
+                    </div>
+                <?php endif; ?>
 
                 <div class="mt-6">
                     <h3 class="font-bold text-slate-800 mb-3">Detaylar</h3>

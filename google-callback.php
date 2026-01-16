@@ -9,9 +9,10 @@ while ($row = $stmt->fetch()) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
 
-$clientId = $settings['google_client_id'] ?? '';
-$clientSecret = $settings['google_client_secret'] ?? '';
-$redirectUri = 'http://' . $_SERVER['HTTP_HOST'] . '/google-callback.php';
+$clientId = trim($settings['google_client_id'] ?? '');
+$clientSecret = trim($settings['google_client_secret'] ?? '');
+$protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
+$redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/google-callback.php';
 
 if (isset($_GET['code'])) {
     $code = $_GET['code'];
@@ -77,10 +78,10 @@ if (isset($_GET['code'])) {
             // Kullanıcı hiç bulunamadıysa, yeni bir tane oluştur
             if (!$user) {
                 // Rastgele bir şifre oluştur, çünkü sosyal girişlerde şifre kullanılmaz
-                $randomPassword = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
+                // Şifreyi boş bırakıyoruz, complete-profile.php'de isteyeceğiz veya null kalacak
                 
-                $insertStmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, password, role, is_verified, google_id, avatar_url) VALUES (?, ?, ?, ?, 'customer', 1, ?, ?)");
-                $insertStmt->execute([$firstName, $lastName, $email, $randomPassword, $googleId, $avatarUrl]);
+                $insertStmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, role, is_verified, google_id, avatar_url) VALUES (?, ?, ?, 'customer', 1, ?, ?)");
+                $insertStmt->execute([$firstName, $lastName, $email, $googleId, $avatarUrl]);
                 $userId = $pdo->lastInsertId();
 
                 // Yeni oluşturulan kullanıcıyı tekrar çek

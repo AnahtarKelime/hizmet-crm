@@ -70,7 +70,7 @@ require_once 'includes/header.php';
             <div class="space-y-4 rounded-md shadow-sm">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Telefon Numarası</label>
-                    <input name="phone" type="tel" required class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="0555 555 55 55" value="<?= htmlspecialchars($user['phone'] ?? '') ?>">
+                    <input name="phone" id="phoneInput" type="tel" required class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="(05XX) XXX XX XX" value="<?= htmlspecialchars($user['phone'] ?? '') ?>">
                 </div>
                 
                 <div>
@@ -129,5 +129,14 @@ require_once 'includes/header.php';
             updateDistricts();
         }
     });
+
+    // Telefon Numarası Maskeleme
+    const phoneInput = document.getElementById('phoneInput');
+    if (phoneInput) {
+        phoneInput.addEventListener('input', function (e) {
+            var x = e.target.value.replace(/\D/g, '').match(/(\d{0,4})(\d{0,3})(\d{0,2})(\d{0,2})/);
+            e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? ' ' + x[3] : '') + (x[4] ? ' ' + x[4] : '');
+        });
+    }
 </script>
 <?php require_once 'includes/footer.php'; ?>

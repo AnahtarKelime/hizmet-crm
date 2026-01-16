@@ -57,9 +57,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $name = basename($_FILES[$inputName]['name']);
                 $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
                 
+                // MIME Type Kontrolü
+                $finfo = finfo_open(FILEINFO_MIME_TYPE);
+                $mimeType = finfo_file($finfo, $tmpName);
+                finfo_close($finfo);
+
+                $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
+                $allowedExts = ['jpg', 'jpeg', 'png', 'pdf'];
+                
                 // Güvenlik: Sadece belirli uzantılara izin ver
-                if (in_array($ext, ['jpg', 'jpeg', 'png', 'pdf'])) {
-                    $newName = $userId . '_' . $inputName . '_' . uniqid() . '.' . $ext;
+                if (in_array($ext, $allowedExts) && in_array($mimeType, $allowedMimes)) {
+                    $newName = uniqid('doc_', true) . '.' . $ext; // Rastgele isim
                     if (move_uploaded_file($tmpName, $uploadDir . $newName)) {
                         $stmt->execute([$userId, $docType, 'uploads/documents/' . $newName]);
                     }

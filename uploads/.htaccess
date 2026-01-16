@@ -1,0 +1,7 @@
+# Bu klasörde PHP çalıştırılmasını engelle
+
+<FilesMatch "\.(php|php5|phtml)$">
+Order Deny,Allow
+Deny from all
+</FilesMatch>
+Options -Indexes

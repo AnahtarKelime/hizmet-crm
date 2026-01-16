@@ -19,7 +19,7 @@ try {
 }
 
 // Kullanıcı giriş yapmışsa kayıtlı konumunu çek
-$userLocationText = 'İstanbul'; // Varsayılan
+$userLocationText = ''; // Varsayılan boş olsun
 $userLocationSlug = '';
 
 if (isset($_SESSION['user_id'])) {
@@ -39,6 +39,9 @@ if (isset($_SESSION['user_id'])) {
 require_once 'includes/header.php';
 ?>
 
+<!-- Google Maps API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&libraries=places"></script>
+
 <main>
     <div class="relative w-full min-h-[500px] flex items-center justify-center py-20">
         <div class="absolute inset-0 bg-cover bg-center" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuCFTmfms5gIZw0baGYxkytuep9SuCC6LSyPQzBXoPRlY7zFY0o4joOj2hN9KuTfdCevD1bLV7HTf8o0ZyP-TP_f_L3IRSdRsFYa0LjxhkI6Tl3kFnLnpYPrdomUduyQtZEEGAWCKVeP6CstQQV5xzXdOulfi5B4AlzNu4KrCf8pWgtElx6AL6Bb5h8fstdHowpkVaSqpsp4UouQPDkvdzLgE1IonAGOjiSkRQjuIdl7yI-iZNVz9yJAuK_6BW_rjQ62Nf8I_FmETME");'>
@@ -52,10 +55,11 @@ require_once 'includes/header.php';
                 Binlerce güvenilir uzman <span class="text-accent underline decoration-4 underline-offset-8"><?= htmlspecialchars($siteTitle) ?></span> güvencesiyle yanınızda.
             </p>
             <!-- Arama Formu Alanı -->
-            <div class="bg-white dark:bg-slate-900 p-2 md:p-3 rounded-2xl shadow-2xl flex flex-col md:flex-row items-stretch gap-2 border border-white/20 relative z-20">
+            <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2 md:p-3 rounded-2xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col md:flex-row items-stretch gap-2 border border-white/20 dark:border-slate-700 relative z-20 ring-1 ring-white/40 dark:ring-slate-800">
                 <!-- Hizmet Arama -->
                 <div class="flex-[1.5] flex items-center px-4 border-b md:border-b-0 md:border-r border-slate-200 dark:border-slate-700 group relative">
-                    <span class="material-symbols-outlined text-slate-400 group-focus-within:text-primary">search</span>
+                    <span id="search-icon" class="material-symbols-outlined text-slate-400 group-focus-within:text-primary">search</span>
+                    <span id="search-spinner" class="material-symbols-outlined text-primary animate-spin hidden">progress_activity</span>
                     <input id="service-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Hangi hizmeti arıyorsun? (örn: Temizlik, Boyacı)" type="text"/>
                     <input type="hidden" id="selected-service-slug" name="service_slug">
                     <!-- Hizmet Sonuçları Dropdown -->
@@ -65,13 +69,18 @@ require_once 'includes/header.php';
                 <!-- Lokasyon Arama -->
                 <div class="flex-1 flex items-center px-4 group relative">
                     <span class="material-symbols-outlined text-slate-400 group-focus-within:text-primary">location_on</span>
-                    <input id="location-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Şehir veya İlçe" type="text" value="<?= htmlspecialchars($userLocationText) ?>"/>
-                    <input type="hidden" id="selected-location-slug" name="location_slug" value="<?= htmlspecialchars($userLocationSlug) ?>">
-                    <!-- Lokasyon Sonuçları Dropdown -->
-                    <ul id="location-results" class="absolute top-full left-0 w-full bg-white dark:bg-slate-800 rounded-xl shadow-xl mt-2 hidden overflow-hidden border border-slate-100 dark:border-slate-700 z-50 max-h-60 overflow-y-auto"></ul>
+                    <!-- ID'yi değiştirdik ki eski search.js çakışmasın -->
+                    <input id="google-location-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Konumunuzu arayın (İlçe, Mahalle...)" type="text" value="<?= htmlspecialchars($userLocationText) ?>"/>
+                    
+                    <!-- Google'dan gelen verileri tutacak hidden inputlar -->
+                    <input type="hidden" id="g-address" name="g_address">
+                    <input type="hidden" id="g-lat" name="g_lat">
+                    <input type="hidden" id="g-lng" name="g_lng">
+                    <input type="hidden" id="g-city" name="g_city">
+                    <input type="hidden" id="g-district" name="g_district">
                 </div>
 
-                <button id="btn-find-service" class="bg-primary hover:bg-primary/95 text-white font-black py-4 px-12 rounded-xl transition-all flex items-center justify-center gap-2 group shadow-xl">
+                <button id="btn-find-service-custom" class="bg-primary hover:bg-primary/90 text-white font-black py-4 px-12 rounded-xl transition-all flex items-center justify-center gap-2 group shadow-lg shadow-primary/30 hover:shadow-primary/50 hover:-translate-y-0.5">
                     Hizmet Bul
                     <span class="material-symbols-outlined group-hover:translate-x-1 transition-transform">arrow_forward</span>
                 </button>
@@ -80,11 +89,11 @@ require_once 'includes/header.php';
     </div>
     <div class="bg-accent py-5 shadow-inner">
         <div class="max-w-7xl mx-auto px-4 flex flex-wrap justify-around gap-8 text-primary font-black uppercase tracking-tight text-sm">
-            <div class="flex items-center gap-3">
+            <div class="hidden md:flex items-center gap-3">
                 <span class="material-symbols-outlined text-2xl">verified</span>
                 <span>1M+ Onaylı Uzman</span>
             </div>
-            <div class="flex items-center gap-3">
+            <div class="hidden md:flex items-center gap-3">
                 <span class="material-symbols-outlined text-2xl">star</span>
                 <span>4.8/5 Kullanıcı Puanı</span>
             </div>
@@ -94,19 +103,22 @@ require_once 'includes/header.php';
             </div>
         </div>
     </div>
-    <section class="max-w-7xl mx-auto px-4 py-24">
+    <section class="max-w-7xl mx-auto px-4 py-12">
         <div class="flex flex-col md:flex-row md:items-end justify-between mb-12 gap-6">
             <div class="max-w-2xl">
-                <h3 class="text-4xl font-black text-primary dark:text-white mb-4 uppercase tracking-tighter">Popüler Kategoriler</h3>
+                <h3 class="text-2xl md:text-4xl font-black text-primary dark:text-white mb-4 uppercase tracking-tighter flex items-center gap-2">
+                    <span class="material-symbols-outlined text-2xl md:text-4xl fill-1 text-primary dark:text-white">local_fire_department</span>
+                    Popüler Kategoriler
+                </h3>
                 <p class="text-slate-600 dark:text-slate-400 text-lg font-medium">En çok tercih edilen, yüksek puanlı uzmanlarımızın bulunduğu popüler hizmetlerimiz.</p>
             </div>
             <a class="bg-primary/5 hover:bg-primary/10 text-primary dark:text-accent px-6 py-3 rounded-xl font-black flex items-center gap-2 transition-all border border-primary/10" href="#">
                 Tümünü Keşfet <span class="material-symbols-outlined">chevron_right</span>
             </a>
         </div>
-        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
             <?php foreach($popularCategories as $cat): ?>
-            <div class="group relative h-[380px] rounded-3xl overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl transition-all border-4 border-transparent hover:border-accent/50" onclick="window.location.href='teklif-al.php?service=<?= $cat['slug'] ?>'">
+            <div class="group relative h-[250px] md:h-[380px] rounded-2xl md:rounded-3xl overflow-hidden cursor-pointer shadow-xl hover:shadow-2xl transition-all border-2 md:border-4 border-transparent hover:border-accent/50" onclick="window.location.href='teklif-al.php?service=<?= $cat['slug'] ?>'">
                 <?php 
                 // Görsel varsa onu kullan, yoksa placeholder
                 $bgImage = !empty($cat['image']) && file_exists($cat['image']) 
@@ -114,9 +126,9 @@ require_once 'includes/header.php';
                     : "https://placehold.co/600x800/1a2a6c/FFF?text=" . urlencode($cat['name']);
                 ?>
                 <img alt="<?= htmlspecialchars($cat['name']) ?>" class="absolute inset-0 w-full h-full object-cover group-hover:scale-105 transition-transform duration-700" src="<?= $bgImage ?>"/>
-                <div class="absolute inset-0 service-card-overlay flex flex-col justify-end p-8">
+                <div class="absolute inset-0 service-card-overlay flex flex-col justify-end p-4 md:p-8">
                     <?php if($cat['id'] == 1): ?><span class="bg-accent text-primary text-[10px] font-black px-2 py-0.5 rounded w-fit mb-3">EN ÇOK ARANAN</span><?php endif; ?>
-                    <h4 class="text-white font-black text-2xl mb-2"><?= htmlspecialchars($cat['name']) ?></h4>
+                    <h4 class="text-white font-black text-lg md:text-2xl mb-1 md:mb-2 leading-tight"><?= htmlspecialchars($cat['name']) ?></h4>
                     <p class="text-white/80 text-sm font-medium">Hemen teklif al.</p>
                 </div>
             </div>
@@ -222,5 +234,227 @@ require_once 'includes/header.php';
     </section>
 </main>
 
+<script>
+    // Popüler Hizmetleri JS'e aktar
+    const popularServicesData = <?= json_encode(array_map(function($cat) {
+        return [
+            'name' => $cat['name'],
+            'slug' => $cat['slug'],
+            'icon' => $cat['icon']
+        ];
+    }, $popularCategories)) ?>;
+</script>
 <script src="assets/js/search.js"></script>
+<script>
+    // Google Places Autocomplete Başlatma
+    function initAutocomplete() {
+        const input = document.getElementById("google-location-search");
+        if (!input) return;
+
+        const options = {
+            componentRestrictions: { country: "tr" }, // Sadece Türkiye
+            fields: ["formatted_address", "geometry", "address_components"],
+            types: ["geocode"] // Yerleşim yerleri
+        };
+
+        const autocomplete = new google.maps.places.Autocomplete(input, options);
+
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            
+            if (!place.geometry || !place.geometry.location) {
+                return;
+            }
+
+            // Değerleri hidden inputlara ata
+            document.getElementById("g-address").value = place.formatted_address;
+            document.getElementById("g-lat").value = place.geometry.location.lat();
+            document.getElementById("g-lng").value = place.geometry.location.lng();
+
+            // İl ve İlçe bilgisini ayrıştır
+            let city = "";
+            let district = "";
+
+            for (const component of place.address_components) {
+                const types = component.types;
+                if (types.includes("administrative_area_level_1")) {
+                    city = component.long_name; // İl (Örn: İstanbul)
+                }
+                if (types.includes("administrative_area_level_2")) {
+                    district = component.long_name; // İlçe (Örn: Kadıköy)
+                }
+            }
+            
+            document.getElementById("g-city").value = city;
+            document.getElementById("g-district").value = district;
+        });
+    }
+
+    // Sayfa yüklendiğinde çalıştır
+    document.addEventListener("DOMContentLoaded", function() {
+        if (typeof google !== 'undefined' && google.maps && google.maps.places) {
+            initAutocomplete();
+        }
+        
+        // search.js içindeki butona tıklama olayını override ediyoruz
+        const findBtn = document.getElementById('btn-find-service-custom');
+        if(findBtn) {
+            // Mevcut event listener'ı kaldırmak zor olduğu için, search.js'deki ID'leri değiştirdik veya
+            // burada kendi mantığımızı kuruyoruz. search.js'deki locationInput kontrolü null döneceği için hata vermez.
+            
+            findBtn.onclick = function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+
+                // Loading Başlat
+                const originalContent = findBtn.innerHTML;
+                findBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-xl">progress_activity</span> Aranıyor...';
+                findBtn.disabled = true;
+                findBtn.classList.add('opacity-80', 'cursor-not-allowed');
+
+                const serviceSlug = document.getElementById('selected-service-slug')?.value;
+                const serviceText = document.getElementById('service-search')?.value;
+                
+                // Google verileri
+                const gAddress = document.getElementById('g-address').value;
+                const gLat = document.getElementById('g-lat').value;
+                const gLng = document.getElementById('g-lng').value;
+                const gCity = document.getElementById('g-city').value;
+                const gDistrict = document.getElementById('g-district').value;
+                const rawLoc = document.getElementById('google-location-search').value;
+
+                if (!serviceSlug && !serviceText) {
+                    // Hizmet seçilmediyse arama kutusuna odaklan
+                    document.getElementById('service-search')?.focus();
+                    
+                    // Loading Durdur
+                    findBtn.innerHTML = originalContent;
+                    findBtn.disabled = false;
+                    findBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+                    return;
+                }
+
+                if (!gAddress && !rawLoc) {
+                    alert('Lütfen bir konum seçiniz.');
+                    // Loading Durdur
+                    findBtn.innerHTML = originalContent;
+                    findBtn.disabled = false;
+                    findBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+                    return;
+                }
+
+                // URL Oluşturma
+                let url = `teklif-al.php?service=${encodeURIComponent(serviceSlug || '')}`;
+                
+                if (gAddress) {
+                    // Google verileri varsa onları gönder
+                    url += `&address=${encodeURIComponent(gAddress)}&lat=${gLat}&lng=${gLng}&city=${encodeURIComponent(gCity)}&district=${encodeURIComponent(gDistrict)}`;
+                } else {
+                    // Yoksa inputtaki metni gönder (Fallback)
+                    if(rawLoc) url += `&raw_location=${encodeURIComponent(rawLoc)}`;
+                }
+
+                window.location.href = url;
+            };
+        }
+    });
+</script>
+
+<?php if (!$isLoggedIn): ?>
+<!-- Google Login Prompt -->
+<div id="google-login-prompt" class="fixed z-[70] transition-all duration-500 opacity-0 invisible" style="display: none;">
+    
+    <!-- Desktop Pop-up (Sağ Üst) -->
+    <div class="hidden md:flex fixed top-24 right-6 w-80 bg-white dark:bg-slate-800 rounded-2xl shadow-[0_8px_30px_rgb(0,0,0,0.12)] border border-slate-100 dark:border-slate-700 p-5 flex-col gap-4 transform transition-transform duration-500 translate-x-10" id="desktop-prompt-content">
+        <button onclick="closeGooglePrompt(event)" class="absolute top-3 right-3 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-lg">close</span>
+        </button>
+        <div class="flex items-center gap-4">
+            <div class="w-12 h-12 bg-white rounded-full flex items-center justify-center shadow-sm border border-slate-100 shrink-0">
+                <img src="https://www.google.com/favicon.ico" alt="Google" class="w-6 h-6">
+            </div>
+            <div>
+                <h5 class="font-bold text-slate-800 dark:text-white text-base">Hızlı Giriş Yap</h5>
+                <p class="text-xs text-slate-500 dark:text-slate-400 leading-tight mt-1">Teklifleri kaçırma, hemen hesabına eriş.</p>
+            </div>
+        </div>
+        <a href="google-login.php" class="w-full bg-white text-slate-700 border border-slate-200 hover:bg-slate-50 font-bold py-2.5 rounded-xl text-sm flex items-center justify-center gap-3 transition-all shadow-sm group">
+            <img src="https://www.google.com/favicon.ico" alt="Google" class="w-4 h-4">
+            <span class="group-hover:text-primary transition-colors">Google ile Devam Et</span>
+        </a>
+    </div>
+
+    <!-- Mobile Bottom Bar -->
+    <div class="md:hidden fixed bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-800 p-4 shadow-[0_-4px_20px_rgba(0,0,0,0.1)] transform transition-transform duration-500 translate-y-full" id="mobile-prompt-content">
+         <div class="flex items-center justify-between gap-3">
+            <div class="flex items-center gap-3 flex-1">
+                <div class="w-10 h-10 bg-white dark:bg-slate-800 rounded-full flex items-center justify-center border border-slate-100 dark:border-slate-700 shadow-sm shrink-0">
+                    <img src="https://www.google.com/favicon.ico" alt="Google" class="w-5 h-5">
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="font-bold text-slate-800 dark:text-white text-sm truncate">Google ile Giriş Yap</p>
+                    <p class="text-xs text-slate-500 dark:text-slate-400 truncate">Hızlı ve güvenli erişim.</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-2 shrink-0">
+                <a href="google-login.php" class="bg-primary text-white px-4 py-2.5 rounded-xl text-xs font-bold shadow-lg shadow-primary/20 whitespace-nowrap">
+                    Giriş Yap
+                </a>
+                <button onclick="closeGooglePrompt(event)" class="p-2 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors">
+                    <span class="material-symbols-outlined text-xl">close</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Oturum süresince kapattıysa tekrar gösterme
+        if (!sessionStorage.getItem('googlePromptClosed')) {
+            setTimeout(() => {
+                const prompt = document.getElementById('google-login-prompt');
+                const desktopContent = document.getElementById('desktop-prompt-content');
+                const mobileContent = document.getElementById('mobile-prompt-content');
+                
+                if(prompt) {
+                    prompt.style.display = 'block';
+                    prompt.offsetHeight; // Reflow tetikle
+                    prompt.classList.remove('opacity-0', 'invisible');
+                    
+                    if(desktopContent) desktopContent.classList.remove('translate-x-10');
+                    if(mobileContent) mobileContent.classList.remove('translate-y-full');
+                }
+            }, 3500); // 3.5 saniye sonra göster
+        }
+
+        // Dışarı tıklama kontrolü (Sadece masaüstü için)
+        document.addEventListener('click', function(event) {
+            const prompt = document.getElementById('google-login-prompt');
+            const desktopContent = document.getElementById('desktop-prompt-content');
+            
+            if (prompt && !prompt.classList.contains('invisible') && window.innerWidth >= 768) {
+                if (desktopContent && !desktopContent.contains(event.target)) {
+                    closeGooglePrompt(event);
+                }
+            }
+        });
+    });
+
+    function closeGooglePrompt(e) {
+        if(e) e.stopPropagation();
+        const prompt = document.getElementById('google-login-prompt');
+        const desktopContent = document.getElementById('desktop-prompt-content');
+        const mobileContent = document.getElementById('mobile-prompt-content');
+        
+        if(prompt) {
+            if(desktopContent) desktopContent.classList.add('translate-x-10');
+            if(mobileContent) mobileContent.classList.add('translate-y-full');
+            prompt.classList.add('opacity-0', 'invisible');
+            setTimeout(() => { prompt.style.display = 'none'; }, 500);
+            sessionStorage.setItem('googlePromptClosed', 'true');
+        }
+    }
+</script>
+<?php endif; ?>
 <?php require_once 'includes/footer.php'; ?>

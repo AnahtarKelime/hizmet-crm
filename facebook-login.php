@@ -10,13 +10,14 @@ while ($row = $stmt->fetch()) {
 }
 
 $facebookLoginActive = ($settings['facebook_login_active'] ?? '0') == '1';
-$appId = $settings['facebook_app_id'] ?? '';
+$appId = trim($settings['facebook_app_id'] ?? '');
 
 if (!$facebookLoginActive || empty($appId)) {
     die("Facebook ile giriş aktif değil veya API bilgileri eksik.");
 }
 
-$redirectUri = 'http://' . $_SERVER['HTTP_HOST'] . '/facebook-callback.php';
+$protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
+$redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/facebook-callback.php';
 
 $authUrl = 'https://www.facebook.com/v19.0/dialog/oauth?' . http_build_query([
     'client_id' => $appId,

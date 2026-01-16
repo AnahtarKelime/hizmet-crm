@@ -6,6 +6,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const selectedServiceSlug = document.getElementById('selected-service-slug');
         const selectedLocationSlug = document.getElementById('selected-location-slug');
         const findButton = document.getElementById('btn-find-service');
+        const searchIcon = document.getElementById('search-icon');
+        const searchSpinner = document.getElementById('search-spinner');
 
         // API Base URL'ini dinamik olarak bul
         // Bu script'in (search.js) bulunduğu yerden yola çıkarak kök dizini buluruz.
@@ -29,18 +31,78 @@ document.addEventListener('DOMContentLoaded', () => {
                 };
         }
 
+        // Sonuçları Ekrana Basma Fonksiyonu
+        function renderServiceResults(data, isPopular = false) {
+                serviceResults.innerHTML = '';
+
+                if (isPopular) {
+                        const header = document.createElement('li');
+                        header.className = 'px-4 py-2 text-xs font-bold text-slate-400 bg-slate-50 uppercase tracking-wider';
+                        header.textContent = 'Popüler Hizmetler';
+                        serviceResults.appendChild(header);
+                }
+
+                if (Array.isArray(data) && data.length > 0) {
+                        serviceResults.classList.remove('hidden');
+                        data.forEach(item => {
+                                const li = document.createElement('li');
+                                li.className = 'px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors border-b border-slate-100 last:border-0';
+                                li.innerHTML = `
+                        <span class="material-symbols-outlined text-slate-400">${item.icon || 'work'}</span>
+                        <div class="flex flex-col">
+                            <span class="font-medium text-slate-700">${item.name}</span>
+                            ${item.matched_keyword ? `<span class="text-xs text-slate-400">"${item.matched_keyword}" sonucunda</span>` : ''}
+                        </div>
+                    `;
+                                li.onclick = () => {
+                                        serviceInput.value = item.name;
+                                        if (selectedServiceSlug) selectedServiceSlug.value = item.slug;
+                                        serviceResults.classList.add('hidden');
+                                };
+                                serviceResults.appendChild(li);
+                        });
+                } else if (!isPopular) {
+                        serviceResults.classList.remove('hidden');
+                        serviceResults.innerHTML = '<li class="px-4 py-3 text-slate-500 text-sm text-center">Sonuç bulunamadı.</li>';
+                } else {
+                        serviceResults.classList.add('hidden');
+                }
+        }
+
         // Hizmet Arama
         if (serviceInput) {
                 console.log('Hizmet arama aktif'); // Kontrol logu
+
+                // Odaklanınca Popüler Hizmetleri Göster
+                serviceInput.addEventListener('focus', () => {
+                        if (serviceInput.value.trim() === '' && typeof popularServicesData !== 'undefined') {
+                                renderServiceResults(popularServicesData, true);
+                        }
+                });
+
                 serviceInput.addEventListener('input', debounce(async (e) => {
                         const query = e.target.value;
 
                         // Yazı değiştiği an seçili slug'ı temizle, kullanıcıyı seçmeye zorla
                         if (selectedServiceSlug) selectedServiceSlug.value = '';
 
+                        if (query.length === 0) {
+                                if (typeof popularServicesData !== 'undefined') {
+                                        renderServiceResults(popularServicesData, true);
+                                } else {
+                                        serviceResults.classList.add('hidden');
+                                }
+                                return;
+                        }
+
                         if (query.length < 2) {
                                 serviceResults.classList.add('hidden');
                                 return;
+                        }
+
+                        if (searchIcon && searchSpinner) {
+                                searchIcon.classList.add('hidden');
+                                searchSpinner.classList.remove('hidden');
                         }
 
                         try {
@@ -66,32 +128,14 @@ document.addEventListener('DOMContentLoaded', () => {
                                         return;
                                 }
 
-                                serviceResults.innerHTML = '';
-                                if (Array.isArray(data) && data.length > 0) {
-                                        serviceResults.classList.remove('hidden');
-                                        data.forEach(item => {
-                                                const li = document.createElement('li');
-                                                li.className = 'px-4 py-3 hover:bg-slate-50 cursor-pointer flex items-center gap-3 transition-colors border-b border-slate-100 last:border-0';
-                                                li.innerHTML = `
-                            <span class="material-symbols-outlined text-slate-400">${item.icon || 'work'}</span>
-                            <div class="flex flex-col">
-                                <span class="font-medium text-slate-700">${item.name}</span>
-                                ${item.matched_keyword ? `<span class="text-xs text-slate-400">"${item.matched_keyword}" sonucunda</span>` : ''}
-                            </div>
-                        `;
-                                                li.onclick = () => {
-                                                        serviceInput.value = item.name;
-                                                        if (selectedServiceSlug) selectedServiceSlug.value = item.slug; // Slug'ı kaydet
-                                                        serviceResults.classList.add('hidden');
-                                                        // İsterseniz burada form submit edilebilir veya hidden input güncellenebilir
-                                                };
-                                                serviceResults.appendChild(li);
-                                        });
-                                } else {
-                                        serviceResults.classList.add('hidden');
-                                }
+                                renderServiceResults(data);
                         } catch (err) {
                                 console.error('Arama hatası:', err);
+                        } finally {
+                                if (searchIcon && searchSpinner) {
+                                        searchIcon.classList.remove('hidden');
+                                        searchSpinner.classList.add('hidden');
+                                }
                         }
                 }, 300));
         }

@@ -53,9 +53,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
             $fileName = basename($_FILES['attachment']['name']); // Güvenlik için basename
             $fileExtension = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             $allowedExtensions = ['jpg', 'jpeg', 'png', 'pdf', 'doc', 'docx', 'webp'];
+            
+            // MIME Type Kontrolü
+            $finfo = finfo_open(FILEINFO_MIME_TYPE);
+            $mimeType = finfo_file($finfo, $fileTmpPath);
+            finfo_close($finfo);
+            
+            $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'image/webp'];
 
-            if (in_array($fileExtension, $allowedExtensions)) {
-                $newFileName = uniqid() . '_' . $fileName;
+            if (in_array($fileExtension, $allowedExtensions) && in_array($mimeType, $allowedMimes)) {
+                $newFileName = uniqid('msg_', true) . '.' . $fileExtension;
                 if (move_uploaded_file($fileTmpPath, $uploadDir . $newFileName)) {
                     $attachmentPath = $uploadDir . $newFileName;
                 }

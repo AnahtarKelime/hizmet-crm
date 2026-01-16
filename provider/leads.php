@@ -8,6 +8,18 @@ if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'provider') {
     exit;
 }
 
+// Mesafe Hesaplama Fonksiyonu (Haversine Formülü)
+function calculateDistance($lat1, $lon1, $lat2, $lon2) {
+    if (!$lat1 || !$lon1 || !$lat2 || !$lon2) return null;
+    
+    $theta = $lon1 - $lon2;
+    $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
+    $dist = acos($dist);
+    $dist = rad2deg($dist);
+    $miles = $dist * 60 * 1.1515;
+    return ($miles * 1.609344); // Kilometreye çevir
+}
+
 $userId = $_SESSION['user_id'];
 
 // 1. Hizmet Veren Bilgilerini ve Aboneliğini Çek
@@ -171,6 +183,12 @@ require_once '../includes/header.php';
                         }
                     }
                 ?>
+                
+                <?php 
+                    // Mesafe Hesapla
+                    $distance = calculateDistance($provider['latitude'], $provider['longitude'], $lead['latitude'], $lead['longitude']);
+                ?>
+
                 <div class="bg-white p-6 rounded-2xl shadow-sm border <?= $cardBorderClass ?> hover:shadow-md transition-all group relative overflow-hidden">
                     <?php if ($activeTab === 'new' && !$isViewed): ?>
                         <div class="absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl bg-green-700">
@@ -190,10 +208,15 @@ require_once '../includes/header.php';
                             <?= htmlspecialchars($lead['category_name']) ?>
                         </span>
                         <h4 class="font-bold text-slate-800 line-clamp-2 mb-1 h-12"><?= htmlspecialchars($lead['title']) ?></h4>
-                        <p class="text-slate-500 text-sm flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">location_on</span>
-                            <?= htmlspecialchars($lead['city'] . ' / ' . $lead['district']) ?>
-                        </p>
+                        <div class="flex items-center justify-between">
+                            <p class="text-slate-500 text-sm flex items-center gap-1">
+                                <span class="material-symbols-outlined text-sm">location_on</span>
+                                <?= htmlspecialchars($lead['city'] . ' / ' . $lead['district']) ?>
+                            </p>
+                            <?php if ($distance !== null): ?>
+                                <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded flex items-center gap-1" title="Kuş uçuşu mesafe"><span class="material-symbols-outlined text-[10px]">straight</span> <?= number_format($distance, 1) ?> km</span>
+                            <?php endif; ?>
+                        </div>
                     </div>
 
                     <div class="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">

@@ -13,6 +13,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_POST['settings']['facebook_login_active'] = isset($_POST['settings']['facebook_login_active']) ? '1' : '0';
 
             foreach ($_POST['settings'] as $key => $value) {
+                $value = trim($value);
                 $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
                 $stmt->execute([$key, $value, $value]);
             }
@@ -32,13 +33,17 @@ $stmt = $pdo->query("SELECT * FROM settings");
 while ($row = $stmt->fetch()) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
+
+$protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
+$host = $_SERVER['HTTP_HOST'];
+$rootHost = str_replace('www.', '', $host);
 ?>
 
 <div class="max-w-4xl mx-auto">
     <div class="flex justify-between items-center mb-6">
         <div>
-            <h2 class="text-2xl font-bold text-slate-800">Sosyal Giriş Ayarları</h2>
-            <p class="text-slate-500 text-sm">Google ile giriş ayarlarını yapılandırın.</p>
+            <h2 class="text-2xl font-bold text-slate-800">Google & Sosyal Giriş Ayarları</h2>
+            <p class="text-slate-500 text-sm">Google Maps API ve sosyal medya giriş entegrasyonlarını yönetin.</p>
         </div>
     </div>
 
@@ -51,6 +56,21 @@ while ($row = $stmt->fetch()) {
 
     <form method="POST" class="bg-white rounded-xl shadow-sm border border-slate-200 p-8 space-y-8">
         
+        <!-- Google Maps API -->
+        <div class="p-6 border border-slate-200 rounded-xl bg-slate-50">
+            <div class="flex items-center justify-between mb-4">
+                <h4 class="font-bold text-slate-700 flex items-center gap-2">
+                    <span class="material-symbols-outlined text-red-500">map</span>
+                    Google Maps API
+                </h4>
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">API Anahtarı (Key)</label>
+                <input type="text" name="settings[google_maps_api_key]" value="<?= htmlspecialchars($settings['google_maps_api_key'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="AIza...">
+                <p class="text-xs text-slate-500 mt-1">Harita gösterimi ve konum otomatik tamamlama (Places API) için gereklidir.</p>
+            </div>
+        </div>
+
         <div>
             <div class="p-6 border border-slate-200 rounded-xl bg-slate-50">
                 <div class="flex items-center justify-between mb-4">
@@ -75,8 +95,11 @@ while ($row = $stmt->fetch()) {
                     </div>
                     <div class="text-xs text-slate-500 bg-indigo-50 p-3 rounded-lg">
                         <strong>Yetkilendirilmiş yönlendirme URI'si:</strong> 
-                        <code class="font-mono bg-indigo-100 p-1 rounded"><?= 'http://' . $_SERVER['HTTP_HOST'] . '/google-callback.php' ?></code>
-                        <br>Bu adresi Google API Console'daki projenize eklemelisiniz.
+                        <br>Aşağıdaki adreslerin <strong>hepsini</strong> Google API Console'a ekleyiniz:
+                        <ul class="list-disc list-inside mt-1 space-y-1">
+                            <li><code class="font-mono bg-indigo-100 p-1 rounded"><?= $protocol . $rootHost . '/google-callback.php' ?></code></li>
+                            <li><code class="font-mono bg-indigo-100 p-1 rounded"><?= $protocol . 'www.' . $rootHost . '/google-callback.php' ?></code></li>
+                        </ul>
                     </div>
                 </div>
             </div>
@@ -106,8 +129,11 @@ while ($row = $stmt->fetch()) {
                     </div>
                     <div class="text-xs text-slate-500 bg-indigo-50 p-3 rounded-lg">
                         <strong>Geçerli OAuth Yönlendirme URI'si:</strong> 
-                        <code class="font-mono bg-indigo-100 p-1 rounded"><?= 'http://' . $_SERVER['HTTP_HOST'] . '/facebook-callback.php' ?></code>
-                        <br>Bu adresi Facebook for Developers'daki uygulamanıza eklemelisiniz.
+                        <br>Aşağıdaki adreslerin <strong>hepsini</strong> Facebook Uygulama Ayarlarına ekleyiniz:
+                        <ul class="list-disc list-inside mt-1 space-y-1">
+                            <li><code class="font-mono bg-indigo-100 p-1 rounded"><?= $protocol . $rootHost . '/facebook-callback.php' ?></code></li>
+                            <li><code class="font-mono bg-indigo-100 p-1 rounded"><?= $protocol . 'www.' . $rootHost . '/facebook-callback.php' ?></code></li>
+                        </ul>
                     </div>
                 </div>
             </div>

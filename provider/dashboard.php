@@ -24,10 +24,13 @@ $user = $stmt->fetch();
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $businessName = $_POST['business_name'] ?? '';
     $bio = $_POST['bio'] ?? '';
+    $addressText = $_POST['address_text'] ?? '';
+    $latitude = $_POST['latitude'] ?? null;
+    $longitude = $_POST['longitude'] ?? null;
     
     // Provider detaylarını güncelle
-    $stmt = $pdo->prepare("UPDATE provider_details SET business_name = ?, bio = ? WHERE user_id = ?");
-    $stmt->execute([$businessName, $bio, $userId]);
+    $stmt = $pdo->prepare("UPDATE provider_details SET business_name = ?, bio = ?, address_text = ?, latitude = ?, longitude = ? WHERE user_id = ?");
+    $stmt->execute([$businessName, $bio, $addressText, $latitude, $longitude, $userId]);
     
     // Sayfayı yenile ve başarı mesajı göster (Basit refresh)
     header("Location: dashboard.php?status=success");
@@ -38,6 +41,9 @@ $pageTitle = "Panelim";
 $pathPrefix = '../';
 require_once '../includes/header.php';
 ?>
+
+<!-- Google Maps API -->
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&libraries=places"></script>
 
 <style>
     .active-tab { background-color: #fbbd2320; border-left: 4px solid #fbbd23; color: #1a2a6c; }
@@ -119,6 +125,18 @@ require_once '../includes/header.php';
                 <div class="space-y-2">
                     <label class="text-sm font-bold text-primary dark:text-slate-200">Firma veya Usta Adı</label>
                     <input name="business_name" class="w-full rounded-lg border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-accent focus:border-accent px-4 py-3" type="text" value="<?= htmlspecialchars($user['business_name'] ?? '') ?>" placeholder="Örn: Yılmaz Tesisat"/>
+                </div>
+
+                <!-- Address & Location -->
+                <div class="space-y-2">
+                    <label class="text-sm font-bold text-primary dark:text-slate-200">Merkez Adres / Ofis Konumu</label>
+                    <div class="relative">
+                        <input id="provider-address" name="address_text" class="w-full rounded-lg border-slate-300 dark:bg-slate-800 dark:border-slate-700 dark:text-white focus:ring-accent focus:border-accent px-4 py-3 pl-10" type="text" value="<?= htmlspecialchars($user['address_text'] ?? '') ?>" placeholder="Konumunuzu arayın..."/>
+                        <span class="material-symbols-outlined absolute left-3 top-3 text-slate-400">location_on</span>
+                        <input type="hidden" name="latitude" id="lat" value="<?= htmlspecialchars($user['latitude'] ?? '') ?>">
+                        <input type="hidden" name="longitude" id="lng" value="<?= htmlspecialchars($user['longitude'] ?? '') ?>">
+                    </div>
+                    <p class="text-xs text-slate-400">İş fırsatlarının size olan uzaklığını hesaplamak için kullanılır.</p>
                 </div>
 
                 <!-- About Section -->
@@ -232,5 +250,27 @@ require_once '../includes/header.php';
         </div>
     </aside>
 </main>
+
+<script>
+    function initAutocomplete() {
+        const input = document.getElementById("provider-address");
+        if (!input) return;
+
+        const autocomplete = new google.maps.places.Autocomplete(input, {
+            componentRestrictions: { country: "tr" },
+            fields: ["formatted_address", "geometry"],
+            types: ["geocode", "establishment"]
+        });
+
+        autocomplete.addListener("place_changed", () => {
+            const place = autocomplete.getPlace();
+            if (!place.geometry || !place.geometry.location) return;
+
+            document.getElementById("lat").value = place.geometry.location.lat();
+            document.getElementById("lng").value = place.geometry.location.lng();
+        });
+    }
+    document.addEventListener("DOMContentLoaded", initAutocomplete);
+</script>
 
 <?php require_once '../includes/footer.php'; ?>

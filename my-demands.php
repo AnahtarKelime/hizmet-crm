@@ -77,6 +77,36 @@ $demands = $stmt->fetchAll();
                            ($demand['status'] == 'completed' ? 'TAMAMLANDI' : 'İPTAL')) ?>
                     </div>
 
+                    <?php
+                        // Progress Bar Hesaplaması
+                        $progressWidth = '0%';
+                        $progressColor = 'bg-slate-200';
+                        $progressText = '';
+                        
+                        switch($demand['status']) {
+                            case 'pending':
+                                $progressWidth = '33%';
+                                $progressColor = 'bg-yellow-400';
+                                $progressText = 'Onay Bekleniyor';
+                                break;
+                            case 'approved':
+                                $progressWidth = '66%';
+                                $progressColor = 'bg-blue-500';
+                                $progressText = 'Teklifler Toplanıyor';
+                                break;
+                            case 'completed':
+                                $progressWidth = '100%';
+                                $progressColor = 'bg-green-500';
+                                $progressText = 'Tamamlandı';
+                                break;
+                            case 'cancelled':
+                                $progressWidth = '100%';
+                                $progressColor = 'bg-red-500';
+                                $progressText = 'İptal Edildi';
+                                break;
+                        }
+                    ?>
+
                     <div class="mb-4 mt-2">
                         <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider inline-block mb-2">
                             <?= htmlspecialchars($demand['category_name']) ?>
@@ -86,6 +116,17 @@ $demands = $stmt->fetchAll();
                             <span class="material-symbols-outlined text-sm">location_on</span>
                             <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district']) ?>
                         </p>
+                    </div>
+
+                    <!-- Progress Bar -->
+                    <div class="mb-4">
+                        <div class="flex justify-between text-xs font-bold text-slate-500 mb-1">
+                            <span>Süreç Durumu</span>
+                            <span><?= $progressText ?></span>
+                        </div>
+                        <div class="w-full bg-slate-100 rounded-full h-2.5 overflow-hidden">
+                            <div class="<?= $progressColor ?> h-2.5 rounded-full transition-all duration-500" style="width: <?= $progressWidth ?>"></div>
+                        </div>
                     </div>
 
                     <div class="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">

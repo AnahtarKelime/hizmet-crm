@@ -4,6 +4,13 @@ require_once 'config/db.php';
 $serviceSlug = $_GET['service'] ?? '';
 $locationSlug = $_GET['location'] ?? '';
 
+// Google Maps Parametreleri
+$gAddress = $_GET['address'] ?? '';
+$gLat = $_GET['lat'] ?? '';
+$gLng = $_GET['lng'] ?? '';
+$gCity = $_GET['city'] ?? '';
+$gDistrict = $_GET['district'] ?? '';
+
 // Kategori kontrolü
 $category = null;
 $location = null;
@@ -11,19 +18,21 @@ $questions = [];
 
 // Lokasyon kontrolü ve varsayılan atama
 if (empty($locationSlug)) {
-    $locationSlug = 'istanbul-kadikoy-caferaga'; // Varsayılan bir slug
+    // Eğer Google verisi yoksa varsayılan bir slug ata
+    // Varsayılan lokasyon ataması kaldırıldı.
 }
 
-$stmt = $pdo->prepare("SELECT * FROM locations WHERE slug = ?");
-$stmt->execute([$locationSlug]);
-$location = $stmt->fetch();
-
-// Eğer belirtilen slug veritabanında yoksa, ilk kaydı çekerek hatayı önle
-if (!$location) {
-    $stmt = $pdo->query("SELECT * FROM locations LIMIT 1");
+if ($locationSlug) {
+    $stmt = $pdo->prepare("SELECT * FROM locations WHERE slug = ?");
+    $stmt->execute([$locationSlug]);
     $location = $stmt->fetch();
-    if ($location) {
-        $locationSlug = $location['slug'];
+    
+    if (!$location) {
+        $stmt = $pdo->query("SELECT * FROM locations LIMIT 1");
+        $location = $stmt->fetch();
+        if ($location) {
+            $locationSlug = $location['slug'];
+        }
     }
 }
 
@@ -39,7 +48,13 @@ if ($serviceSlug) {
     }
 }
 
-$pageTitle = ($category && $location) ? $location['district'] . ' ' . $category['name'] . " Talebi Oluştur" : "Talep Oluştur";
+$displayLocation = $gAddress ? $gAddress : ($location ? $location['district'] . ' / ' . $location['city'] : '');
+if ($gDistrict && $gCity) {
+    $displayLocation = $gDistrict . ' / ' . $gCity;
+}
+
+$pageTitle = ($category) ? ($displayLocation ? $displayLocation . ' ' : '') . $category['name'] . " Talebi Oluştur" : "Talep Oluştur";
+
 require_once 'includes/header.php';
 ?>
 
@@ -52,13 +67,26 @@ require_once 'includes/header.php';
                 </div>
                 <div>
                     <h1 class="text-2xl font-black text-slate-800"><?= htmlspecialchars($category['name']) ?></h1>
-                    <p class="text-slate-500 font-medium text-sm"><?= htmlspecialchars($location['district'] ?? '') ?> bölgesinde en iyi teklifleri al.</p>
+                    <p class="text-slate-500 font-medium text-sm">
+                        <?php if($displayLocation): ?>
+                            <span class="text-primary font-bold"><?= htmlspecialchars($displayLocation) ?></span> bölgesinde en iyi teklifleri al.
+                        <?php else: ?>
+                            En iyi teklifleri al.
+                        <?php endif; ?>
+                    </p>
                 </div>
             </div>
             
             <form id="wizard-form" action="save-demand.php" method="POST">
                 <input type="hidden" name="category_id" value="<?= $category['id'] ?>">
                 <input type="hidden" name="location_slug" value="<?= htmlspecialchars($location['slug'] ?? $locationSlug) ?>">
+                
+                <!-- Google Maps Verileri -->
+                <input type="hidden" name="g_address" value="<?= htmlspecialchars($gAddress) ?>">
+                <input type="hidden" name="g_lat" value="<?= htmlspecialchars($gLat) ?>">
+                <input type="hidden" name="g_lng" value="<?= htmlspecialchars($gLng) ?>">
+                <input type="hidden" name="g_city" value="<?= htmlspecialchars($gCity) ?>">
+                <input type="hidden" name="g_district" value="<?= htmlspecialchars($gDistrict) ?>">
 
                 <?php if (empty($questions)): ?>
                     <div class="text-center py-8 text-slate-500">Bu kategori için henüz soru tanımlanmamış.</div>

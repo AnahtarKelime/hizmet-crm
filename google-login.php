@@ -10,14 +10,15 @@ while ($row = $stmt->fetch()) {
 }
 
 $googleLoginActive = ($settings['google_login_active'] ?? '0') == '1';
-$clientId = $settings['google_client_id'] ?? '';
-$clientSecret = $settings['google_client_secret'] ?? '';
+$clientId = trim($settings['google_client_id'] ?? '');
+$clientSecret = trim($settings['google_client_secret'] ?? '');
 
 if (!$googleLoginActive || empty($clientId) || empty($clientSecret)) {
     die("Google ile giriş aktif değil veya API bilgileri eksik.");
 }
 
-$redirectUri = 'http://' . $_SERVER['HTTP_HOST'] . '/google-callback.php';
+$protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
+$redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/google-callback.php';
 
 $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
     'response_type' => 'code',

@@ -9,9 +9,10 @@ while ($row = $stmt->fetch()) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
 
-$appId = $settings['facebook_app_id'] ?? '';
-$appSecret = $settings['facebook_app_secret'] ?? '';
-$redirectUri = 'http://' . $_SERVER['HTTP_HOST'] . '/facebook-callback.php';
+$appId = trim($settings['facebook_app_id'] ?? '');
+$appSecret = trim($settings['facebook_app_secret'] ?? '');
+$protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
+$redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/facebook-callback.php';
 
 if (isset($_GET['code'])) {
     $code = $_GET['code'];
@@ -74,10 +75,9 @@ if (isset($_GET['code'])) {
             // Kullanıcı hiç bulunamadıysa, yeni bir tane oluştur
             if (!$user) {
                 // Rastgele bir şifre oluştur
-                $randomPassword = password_hash(bin2hex(random_bytes(16)), PASSWORD_DEFAULT);
                 
-                $insertStmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, password, role, is_verified, facebook_id, avatar_url) VALUES (?, ?, ?, ?, 'customer', 1, ?, ?)");
-                $insertStmt->execute([$firstName, $lastName, $email, $randomPassword, $facebookId, $avatarUrl]);
+                $insertStmt = $pdo->prepare("INSERT INTO users (first_name, last_name, email, role, is_verified, facebook_id, avatar_url) VALUES (?, ?, ?, 'customer', 1, ?, ?)");
+                $insertStmt->execute([$firstName, $lastName, $email, $facebookId, $avatarUrl]);
                 $userId = $pdo->lastInsertId();
 
                 // Yeni oluşturulan kullanıcıyı tekrar çek
