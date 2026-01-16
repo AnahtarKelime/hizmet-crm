@@ -16,7 +16,13 @@ $user = $stmt->fetch();
 
 // Eğer bilgiler zaten tamsa anasayfaya yönlendir
 if (!empty($user['phone']) && !empty($user['city']) && !empty($user['district'])) {
-    header("Location: index.php");
+    if (isset($_SESSION['social_redirect'])) {
+        $redirect = $_SESSION['social_redirect'];
+        unset($_SESSION['social_redirect']);
+        header('Location: ' . $redirect);
+    } else {
+        header("Location: index.php");
+    }
     exit;
 }
 
@@ -34,7 +40,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("UPDATE users SET phone = ?, city = ?, district = ? WHERE id = ?");
             $stmt->execute([$phone, $city, $district, $userId]);
             
-            header("Location: index.php");
+            if (isset($_SESSION['social_redirect'])) {
+                $redirect = $_SESSION['social_redirect'];
+                unset($_SESSION['social_redirect']);
+                header('Location: ' . $redirect);
+            } else {
+                header("Location: index.php");
+            }
             exit;
         } catch (Exception $e) {
             $error = 'Güncelleme sırasında bir hata oluştu.';

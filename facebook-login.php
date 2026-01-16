@@ -19,6 +19,10 @@ if (!$facebookLoginActive || empty($appId)) {
 $protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
 $redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/facebook-callback.php';
 
+if (isset($_GET['redirect'])) {
+    $_SESSION['social_redirect'] = $_GET['redirect'];
+}
+
 $authUrl = 'https://www.facebook.com/v19.0/dialog/oauth?' . http_build_query([
     'client_id' => $appId,
     'redirect_uri' => $redirectUri,

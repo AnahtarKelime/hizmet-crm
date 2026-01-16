@@ -172,7 +172,13 @@ $offers = $stmt->fetchAll();
         <h1 class="text-3xl font-black text-slate-800">Talep Detayı</h1>
     </div>
 
-    <?php if (isset($_GET['status']) && $_GET['status'] == 'success'): ?>
+    <?php 
+    $showSuccessAlert = true;
+    if (isset($_GET['status']) && $_GET['status'] == 'success' && isset($_GET['msg']) && $_GET['msg'] == 'Değerlendirmeniz alındı') {
+        $showSuccessAlert = false;
+    }
+    ?>
+    <?php if (isset($_GET['status']) && $_GET['status'] == 'success' && $showSuccessAlert): ?>
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6">
             <?= htmlspecialchars($_GET['msg'] ?? 'İşlem başarılı.') ?>
         </div>
@@ -483,5 +489,55 @@ $offers = $stmt->fetchAll();
         </div>
     </div>
 </main>
+
+<!-- Rating Success Modal -->
+<div id="rating-success-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-8 max-w-sm w-full mx-4 transform scale-95 transition-transform duration-300 text-center relative">
+        <button onclick="closeRatingModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined">close</span>
+        </button>
+        
+        <div class="w-20 h-20 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-6 animate-bounce">
+            <span class="material-symbols-outlined text-5xl">check_circle</span>
+        </div>
+        
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Teşekkürler!</h3>
+        <p class="text-slate-600 dark:text-slate-400 mb-8">Değerlendirmeniz başarıyla alındı. Geri bildiriminiz bizim için çok değerli.</p>
+        
+        <button onclick="closeRatingModal()" class="w-full py-3 bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
+            Tamam
+        </button>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.get('status') === 'success' && urlParams.get('msg') === 'Değerlendirmeniz alındı') {
+            const modal = document.getElementById('rating-success-modal');
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                modal.querySelector('div').classList.remove('scale-95');
+                modal.querySelector('div').classList.add('scale-100');
+            }, 10);
+        }
+    });
+
+    function closeRatingModal() {
+        const modal = document.getElementById('rating-success-modal');
+        modal.classList.add('opacity-0');
+        modal.querySelector('div').classList.remove('scale-100');
+        modal.querySelector('div').classList.add('scale-95');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            // URL'i temizle
+            const url = new URL(window.location);
+            url.searchParams.delete('status');
+            url.searchParams.delete('msg');
+            window.history.replaceState({}, '', url);
+        }, 300);
+    }
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

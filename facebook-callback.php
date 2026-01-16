@@ -96,7 +96,13 @@ if (isset($_GET['code'])) {
                 if (empty($user['phone']) || empty($user['city']) || empty($user['district'])) {
                     header('Location: complete-profile.php');
                 } else {
-                    header('Location: index.php');
+                    if (isset($_SESSION['social_redirect'])) {
+                        $redirect = $_SESSION['social_redirect'];
+                        unset($_SESSION['social_redirect']);
+                        header('Location: ' . $redirect);
+                    } else {
+                        header('Location: index.php');
+                    }
                 }
                 exit();
             } else {

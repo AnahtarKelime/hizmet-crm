@@ -25,6 +25,7 @@ $stmt = $pdo->prepare("
         d.*, 
         c.name as category_name, 
         l.city, l.district,
+        (SELECT COUNT(*) FROM offers WHERE demand_id = d.id) as offer_count,
         (SELECT id FROM offers WHERE demand_id = d.id AND status = 'accepted' LIMIT 1) as accepted_offer_id,
         (SELECT COUNT(*) FROM reviews WHERE offer_id = (SELECT id FROM offers WHERE demand_id = d.id AND status = 'accepted' LIMIT 1) AND reviewer_id = :reviewer_id) as has_reviewed
     FROM demands d
@@ -108,9 +109,17 @@ $demands = $stmt->fetchAll();
                     ?>
 
                     <div class="mb-4 mt-2">
-                        <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider inline-block mb-2">
-                            <?= htmlspecialchars($demand['category_name']) ?>
-                        </span>
+                        <div class="flex flex-wrap gap-2 mb-2">
+                            <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider">
+                                <?= htmlspecialchars($demand['category_name']) ?>
+                            </span>
+                            <?php if ($demand['offer_count'] > 0): ?>
+                                <span class="px-2 py-1 bg-orange-100 text-orange-700 rounded-lg text-xs font-bold flex items-center gap-1">
+                                    <span class="material-symbols-outlined text-[14px]">local_offer</span>
+                                    <?= $demand['offer_count'] ?> Teklif
+                                </span>
+                            <?php endif; ?>
+                        </div>
                         <h4 class="font-bold text-slate-800 line-clamp-2 mb-1 h-12"><?= htmlspecialchars($demand['title']) ?></h4>
                         <p class="text-slate-500 text-sm flex items-center gap-1">
                             <span class="material-symbols-outlined text-sm">location_on</span>

@@ -20,6 +20,10 @@ if (!$googleLoginActive || empty($clientId) || empty($clientSecret)) {
 $protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
 $redirectUri = $protocol . $_SERVER['HTTP_HOST'] . '/google-callback.php';
 
+if (isset($_GET['redirect'])) {
+    $_SESSION['social_redirect'] = $_GET['redirect'];
+}
+
 $authUrl = 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
     'response_type' => 'code',
     'client_id' => $clientId,
