@@ -40,7 +40,14 @@ if (isset($_GET['code'])) {
     if (isset($tokenData['access_token'])) {
         // 2. Kullanıcı Bilgilerini Al
         $userInfoUrl = 'https://www.googleapis.com/oauth2/v1/userinfo?access_token=' . $tokenData['access_token'];
-        $userInfoResponse = file_get_contents($userInfoUrl);
+        
+        $ch = curl_init();
+        curl_setopt($ch, CURLOPT_URL, $userInfoUrl);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false); // SSL hatası almamak için
+        $userInfoResponse = curl_exec($ch);
+        curl_close($ch);
+        
         $userInfo = json_decode($userInfoResponse, true);
 
         if (isset($userInfo['id'])) {

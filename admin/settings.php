@@ -9,9 +9,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if (isset($_POST['settings'])) {
             foreach ($_POST['settings'] as $key => $value) {
-                // Varsa güncelle, yoksa ekle (ON DUPLICATE KEY UPDATE)
-                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-                $stmt->execute([$key, $value, $value]);
+                $value = trim($value);
+                // Eski kayıtları sil (Duplicate key veya güncelleme sorunlarını önlemek için)
+                $delStmt = $pdo->prepare("DELETE FROM settings WHERE setting_key = ?");
+                $delStmt->execute([$key]);
+                
+                // Yeni değeri ekle
+                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)");
+                $stmt->execute([$key, $value]);
             }
         }
 
@@ -78,12 +83,13 @@ while ($row = $stmt->fetch()) {
             <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">Temel Bilgiler</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-sm font-bold text-slate-700 mb-2">Site Başlığı</label>
-                    <input type="text" name="settings[site_title]" value="<?= htmlspecialchars($settings['site_title'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Anasayfa Başlığı (Meta Title)</label>
+                    <input type="text" name="settings[homepage_title]" value="<?= htmlspecialchars($settings['homepage_title'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Örn: İyiteklif - Hizmet Bulmanın Kolay Yolu">
+                    <p class="text-xs text-slate-500 mt-1">Boş bırakılırsa "Site Başlığı | Site Açıklaması" formatı kullanılır.</p>
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">Site Açıklaması (Meta Description)</label>
-                    <input type="text" name="settings[site_description]" value="<?= htmlspecialchars($settings['site_description'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <input type="text" name="settings[site_description]" value="<?= htmlspecialchars($settings['site_description'] ?? '') ?>" maxlength="90" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
                 </div>
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">Site Logosu</label>

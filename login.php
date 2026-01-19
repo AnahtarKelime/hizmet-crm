@@ -18,6 +18,20 @@ $googleClientId = $settings['google_client_id'] ?? '';
 $facebookLoginActive = ($settings['facebook_login_active'] ?? '0') == '1';
 $facebookAppId = $settings['facebook_app_id'] ?? '';
 
+// Beni Hatırla Kontrolü (Cookie)
+if (!isset($_SESSION['user_id']) && isset($_COOKIE['remember_token'])) {
+    list($rUserId, $rHash) = explode(':', base64_decode($_COOKIE['remember_token']), 2);
+    if ($rUserId && $rHash) {
+        $stmtR = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmtR->execute([$rUserId]);
+        $userR = $stmtR->fetch();
+        if ($userR && hash_equals(hash_hmac('sha256', $userR['password'], 'HIZMET_CRM_SECURE_KEY'), $rHash)) {
+            $_SESSION['user_id'] = $userR['id'];
+            $_SESSION['user_name'] = $userR['first_name'] . ' ' . $userR['last_name'];
+            $_SESSION['user_role'] = $userR['role'];
+        }
+    }
+}
 
 if (isset($_SESSION['user_id'])) {
     header("Location: index.php");
@@ -44,6 +58,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
             $_SESSION['user_role'] = $user['role'];
             
+            // Beni Hatırla Cookie Oluştur
+            if (isset($_POST['remember-me'])) {
+                $token = base64_encode($user['id'] . ':' . hash_hmac('sha256', $user['password'], 'HIZMET_CRM_SECURE_KEY'));
+                setcookie('remember_token', $token, time() + (86400 * 30), '/', '', false, true);
+            }
+
             if ($redirectUrl) {
                 header("Location: " . $redirectUrl);
                 exit;
@@ -68,7 +88,7 @@ require_once 'includes/header.php';
             </h2>
             <p class="mt-2 text-center text-sm text-slate-600">
                 Hesabınız yok mu?
-                <a href="register.php" class="font-medium text-primary hover:text-primary/80 transition-colors">
+                <a href="register.php<?= $redirect ? '?redirect=' . urlencode($redirect) : '' ?>" class="font-medium text-primary hover:text-primary/80 transition-colors">
                     Hemen kayıt olun
                 </a>
             </p>

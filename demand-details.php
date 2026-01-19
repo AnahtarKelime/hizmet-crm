@@ -248,6 +248,12 @@ $offers = $stmt->fetchAll();
                     <div class="mt-6 pt-4 border-t border-slate-100">
                         <h3 class="font-bold text-slate-800 mb-3">Harita Konumu</h3>
                         <div id="map" class="w-full h-64 rounded-xl bg-slate-50 border border-slate-200"></div>
+                        <?php if (!empty($demand['address_text'])): ?>
+                            <div class="mt-3 flex items-start gap-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
+                                <span class="material-symbols-outlined text-primary text-lg shrink-0">location_on</span>
+                                <span><?= htmlspecialchars($demand['address_text']) ?></span>
+                            </div>
+                        <?php endif; ?>
                         <script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&callback=initMap" async defer></script>
                         <script>
                             function initMap() {
@@ -277,7 +283,16 @@ $offers = $stmt->fetchAll();
                                     zoomControl: true,
                                     styles: mapStyles // Stili buraya ekliyoruz
                                 });
-                                new google.maps.Marker({ position: position, map: map });
+                                const marker = new google.maps.Marker({ position: position, map: map });
+
+                                <?php if (!empty($demand['address_text'])): ?>
+                                const infoWindow = new google.maps.InfoWindow({
+                                    content: '<div style="padding:5px; color:#333; font-family:sans-serif; font-size:13px;"><strong>Konum:</strong><br><?= htmlspecialchars($demand['address_text']) ?></div>'
+                                });
+                                marker.addListener("click", () => {
+                                    infoWindow.open(map, marker);
+                                });
+                                <?php endif; ?>
                             }
                         </script>
                     </div>

@@ -1,7 +1,6 @@
 <?php
 require_once '../config/db.php';
 require_once '../includes/mail-helper.php';
-require_once 'includes/header.php';
 
 // Ödeme Onaylama İşlemi
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_payment'])) {
@@ -84,6 +83,8 @@ $sql = "SELECT t.*, u.first_name, u.last_name, u.email
         ORDER BY t.created_at DESC";
 
 $payments = $pdo->query($sql)->fetchAll();
+
+require_once 'includes/header.php';
 ?>
 
 <div class="flex justify-between items-center mb-6">

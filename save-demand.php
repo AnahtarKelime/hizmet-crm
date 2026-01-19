@@ -29,6 +29,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         die("Hata: Kategori bilgisi eksik.");
     }
 
+    // Konum Zorunluluğu Kontrolü
+    if (empty($gAddress) && empty($locationSlug)) {
+        header("Location: teklif-al.php?service=" . ($category['slug'] ?? '') . "&error=location_missing");
+        exit;
+    }
+
     try {
         // 1. Lokasyon ID Belirleme
         $locationId = null;

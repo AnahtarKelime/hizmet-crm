@@ -8,6 +8,22 @@ $userName = $_SESSION['user_name'] ?? 'Hesabım';
 // Linkler için kök dizin öneki (Varsayılan boş)
 $pathPrefix = $pathPrefix ?? '';
 
+// Beni Hatırla (Auto Login)
+if (!$isLoggedIn && isset($_COOKIE['remember_token']) && isset($pdo)) {
+    list($rUserId, $rHash) = explode(':', base64_decode($_COOKIE['remember_token']), 2);
+    if ($rUserId && $rHash) {
+        $stmtR = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmtR->execute([$rUserId]);
+        $userR = $stmtR->fetch();
+        if ($userR && hash_equals(hash_hmac('sha256', $userR['password'], 'HIZMET_CRM_SECURE_KEY'), $rHash)) {
+            $_SESSION['user_id'] = $userR['id'];
+            $_SESSION['user_name'] = $userR['first_name'] . ' ' . $userR['last_name'];
+            $_SESSION['user_role'] = $userR['role'];
+            $isLoggedIn = true;
+        }
+    }
+}
+
 // Kullanıcı Rolünü ve Bilgilerini Güncelle (Session Senkronizasyonu)
 if ($isLoggedIn && isset($pdo)) {
     $stmt = $pdo->prepare("SELECT role, first_name, last_name, avatar_url FROM users WHERE id = ?");
@@ -30,29 +46,52 @@ if ($isLoggedIn && isset($pdo)) {
     
     if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'customer') {
         // Son 5 teklifi çek
-        $stmtNotif = $pdo->prepare("
-            SELECT 
-                o.id as offer_id, 
-                o.created_at, 
-                o.is_read,
-                d.title as demand_title, 
-                d.id as demand_id,
-                u.first_name, u.last_name, pd.business_name
-            FROM offers o
-            JOIN demands d ON o.demand_id = d.id
-            JOIN users u ON o.user_id = u.id
-            LEFT JOIN provider_details pd ON u.id = pd.user_id
-            WHERE d.user_id = ?
-            ORDER BY o.created_at DESC
-            LIMIT 5
-        ");
-        $stmtNotif->execute([$_SESSION['user_id']]);
-        $notifications = $stmtNotif->fetchAll();
-        
-        // Okunmamış teklifleri say (is_read = 0)
-        $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM offers o JOIN demands d ON o.demand_id = d.id WHERE d.user_id = ? AND o.is_read = 0");
-        $stmtCount->execute([$_SESSION['user_id']]);
-        $unreadNotificationCount = $stmtCount->fetchColumn();
+        try {
+            $stmtNotif = $pdo->prepare("
+                SELECT 
+                    o.id as offer_id, 
+                    o.created_at, 
+                    o.is_read,
+                    d.title as demand_title, 
+                    d.id as demand_id,
+                    u.first_name, u.last_name, pd.business_name
+                FROM offers o
+                JOIN demands d ON o.demand_id = d.id
+                JOIN users u ON o.user_id = u.id
+                LEFT JOIN provider_details pd ON u.id = pd.user_id
+                WHERE d.user_id = ?
+                ORDER BY o.created_at DESC
+                LIMIT 5
+            ");
+            $stmtNotif->execute([$_SESSION['user_id']]);
+            $notifications = $stmtNotif->fetchAll();
+            
+            // Okunmamış teklifleri say (is_read = 0)
+            $stmtCount = $pdo->prepare("SELECT COUNT(*) FROM offers o JOIN demands d ON o.demand_id = d.id WHERE d.user_id = ? AND o.is_read = 0");
+            $stmtCount->execute([$_SESSION['user_id']]);
+            $unreadNotificationCount = $stmtCount->fetchColumn();
+        } catch (PDOException $e) {
+            // is_read kolonu yoksa hata vermemesi için fallback
+            $stmtNotif = $pdo->prepare("
+                SELECT 
+                    o.id as offer_id, 
+                    o.created_at, 
+                    0 as is_read,
+                    d.title as demand_title, 
+                    d.id as demand_id,
+                    u.first_name, u.last_name, pd.business_name
+                FROM offers o
+                JOIN demands d ON o.demand_id = d.id
+                JOIN users u ON o.user_id = u.id
+                LEFT JOIN provider_details pd ON u.id = pd.user_id
+                WHERE d.user_id = ?
+                ORDER BY o.created_at DESC
+                LIMIT 5
+            ");
+            $stmtNotif->execute([$_SESSION['user_id']]);
+            $notifications = $stmtNotif->fetchAll();
+            $unreadNotificationCount = 0;
+        }
     }
 }
 
@@ -79,13 +118,24 @@ if (isset($pdo)) {
     $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'header' AND is_active = 1 ORDER BY sort_order ASC");
     $headerMenuItems = $stmt->fetchAll();
 }
+
+// Konum Cookie Kontrolü
+$headerLocationText = isset($_COOKIE['user_location']) ? $_COOKIE['user_location'] : 'Konum Seç';
 ?>
 <!DOCTYPE html>
 <html class="light" lang="tr">
 <head>
     <meta charset="utf-8"/>
     <meta content="width=device-width, initial-scale=1.0" name="viewport"/>
-    <title><?php echo isset($pageTitle) ? $pageTitle . ' | ' . htmlspecialchars($siteTitle) : htmlspecialchars($siteTitle) . ' | ' . htmlspecialchars($siteDescription); ?></title>
+    <title><?php 
+        if (isset($pageTitle)) {
+            echo $pageTitle . ' | ' . htmlspecialchars($siteTitle);
+        } else {
+            echo !empty($siteSettings['homepage_title']) 
+                ? htmlspecialchars($siteSettings['homepage_title']) 
+                : htmlspecialchars($siteTitle) . ' | ' . htmlspecialchars($siteDescription);
+        }
+    ?></title>
     <meta name="description" content="<?= htmlspecialchars($siteDescription) ?>">
     <?php if ($siteKeywords): ?>
     <meta name="keywords" content="<?= htmlspecialchars($siteKeywords) ?>">
@@ -141,6 +191,37 @@ if (isset($pdo)) {
 <?php if (isset($category) && !empty($category['tracking_code_body'])): ?>
     <?= $category['tracking_code_body'] ?>
 <?php endif; ?>
+
+<?php
+// Aktif Duyuruları Çek ve Göster
+if (isset($pdo)) {
+    try {
+        $targetRole = $_SESSION['user_role'] ?? 'guest';
+        // Hedef kitleye uygun (all veya kullanıcının rolü) aktif duyuruları çek
+        $announcements = $pdo->query("SELECT * FROM announcements WHERE is_active = 1 AND (target_role = 'all' OR target_role = '$targetRole') ORDER BY created_at DESC")->fetchAll();
+        
+        foreach ($announcements as $ann) {
+            $annId = 'ann_' . $ann['id'];
+            // Cookie kontrolü: Eğer kullanıcı kapatmışsa gösterme
+            if (!isset($_COOKIE[$annId])) {
+                echo '<div id="' . $annId . '" class="bg-indigo-600 text-white px-4 py-3 relative text-center text-sm font-medium shadow-sm z-[70] flex items-center justify-center">';
+                echo '<span><span class="font-bold uppercase tracking-wide opacity-90 mr-2">' . htmlspecialchars($ann['title']) . ':</span> ' . htmlspecialchars($ann['message']) . '</span>';
+                echo '<button onclick="closeAnnouncement(\'' . $annId . '\')" class="absolute right-4 top-1/2 -translate-y-1/2 text-white/80 hover:text-white transition-colors"><span class="material-symbols-outlined text-lg">close</span></button>';
+                echo '</div>';
+            }
+        }
+        echo '<script>
+            function closeAnnouncement(id) {
+                document.getElementById(id).style.display = "none";
+                document.cookie = id + "=1; path=/; max-age=" + (60*60*24); // 1 gün boyunca gizle
+            }
+        </script>';
+    } catch (Exception $e) {
+        // Tablo yoksa veya hata varsa sessizce geç (Beyaz ekranı önler)
+    }
+}
+?>
+
 <div class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[55]" style="display:none;"></div> <!-- JS ile kontrol edilecek, varsayılan gizli -->
 <header class="sticky top-0 z-[60] w-full bg-white dark:bg-background-dark border-b border-slate-200 dark:border-slate-800">
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -245,9 +326,9 @@ if (isset($pdo)) {
                         <?php endif; ?>
                     </a>
                 </div>
-                <div class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors ml-4">
+                <div id="header-location-btn" class="hidden md:flex items-center gap-2 px-3 py-1.5 bg-slate-100 dark:bg-slate-800 rounded-lg cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors ml-4">
                     <span class="material-symbols-outlined text-primary dark:text-accent text-xl">location_on</span>
-                    <span class="text-sm font-semibold">İstanbul</span>
+                    <span class="text-sm font-semibold" id="header-location-text"><?= htmlspecialchars($headerLocationText) ?></span>
                     <span class="material-symbols-outlined text-sm">expand_more</span>
                 </div>
             </div>
@@ -454,6 +535,78 @@ if (isset($pdo)) {
             window.addEventListener('scroll', () => {
                 closeMenu();
             });
+
+            // Header Konum Seç Butonu
+            const headerLocBtn = document.getElementById('header-location-btn');
+            if (headerLocBtn) {
+                headerLocBtn.addEventListener('click', () => {
+                    if (!navigator.geolocation) {
+                        alert('Tarayıcınız konum servisini desteklemiyor.');
+                        return;
+                    }
+
+                    const locText = document.getElementById('header-location-text');
+                    const originalText = locText.textContent;
+                    locText.textContent = 'Alınıyor...';
+
+                    navigator.geolocation.getCurrentPosition(
+                        (position) => {
+                            const lat = position.coords.latitude;
+                            const lng = position.coords.longitude;
+
+                            // Google Maps JS Geocoder Kullan
+                            if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+                                const geocoder = new google.maps.Geocoder();
+                                geocoder.geocode({ location: { lat: lat, lng: lng } }, (results, status) => {
+                                    if (status === "OK" && results[0]) {
+                                        const place = results[0];
+                                        
+                                        // İl/İlçe parse et
+                                        let city = "";
+                                        for (const component of place.address_components) {
+                                            if (component.types.includes("administrative_area_level_1")) {
+                                                city = component.long_name;
+                                            }
+                                        }
+                                        const newLocation = city || "Konum Seçildi";
+                                        
+                                        // Header ve Cookie Güncelle
+                                        locText.textContent = newLocation;
+                                        document.cookie = "user_location=" + encodeURIComponent(newLocation) + "; path=/; max-age=" + (60*60*24*30); // 30 gün
+
+                                        // Veritabanına Kaydet (AJAX)
+                                        const formData = new FormData();
+                                        formData.append('address', place.formatted_address);
+                                        formData.append('lat', lat);
+                                        formData.append('lng', lng);
+                                        formData.append('city', city);
+                                        // district bilgisini burada tam alamıyoruz ama backend null check yapıyor
+                                        
+                                        fetch('<?= $pathPrefix ?>ajax/update-user-location.php', { method: 'POST', body: formData })
+                                            .catch(err => console.error('Konum kaydedilemedi:', err));
+
+                                        // Anasayfadaki arama kutusunu doldur (Eğer varsa)
+                                        const searchInput = document.getElementById("google-location-search");
+                                        if (searchInput) {
+                                            searchInput.value = place.formatted_address;
+                                            document.getElementById("g-address").value = place.formatted_address;
+                                            document.getElementById("g-lat").value = lat;
+                                            document.getElementById("g-lng").value = lng;
+                                        }
+                                    } else {
+                                        alert('Adres çözümlenemedi.');
+                                        locText.textContent = originalText;
+                                    }
+                                });
+                            }
+                        },
+                        (error) => {
+                            console.warn("Geolocation error:", error);
+                            locText.textContent = originalText;
+                        }
+                    );
+                });
+            }
         }
     });
 </script>

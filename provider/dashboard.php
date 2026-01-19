@@ -42,8 +42,13 @@ $pathPrefix = '../';
 require_once '../includes/header.php';
 ?>
 
+<?php
+// Google Maps API Anahtarı Kontrolü (Fallback ile)
+$googleApiKey = $siteSettings['google_maps_api_key'] ?? '';
+?>
+
 <!-- Google Maps API -->
-<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&libraries=places"></script>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleApiKey) ?>&libraries=places"></script>
 
 <style>
     .active-tab { background-color: #fbbd2320; border-left: 4px solid #fbbd23; color: #1a2a6c; }

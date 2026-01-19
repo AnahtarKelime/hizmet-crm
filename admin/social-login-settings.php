@@ -1,8 +1,23 @@
 <?php
+ob_start();
 require_once '../config/db.php';
-require_once 'includes/header.php';
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+
+if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'admin') {
+    header("Location: login.php");
+    exit;
+}
 
 // Ayarları Kaydet
+if (isset($_GET['clear_maps_keys'])) {
+    // Google Maps anahtarlarını veritabanından sil
+    $pdo->exec("UPDATE settings SET setting_value = '' WHERE setting_key IN ('google_maps_api_key', 'google_maps_geo_api_key')");
+    header("Location: social-login-settings.php?success=1");
+    exit;
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         $pdo->beginTransaction();
@@ -14,13 +29,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             foreach ($_POST['settings'] as $key => $value) {
                 $value = trim($value);
-                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?");
-                $stmt->execute([$key, $value, $value]);
+                // Eski kayıtları sil (Duplicate key veya güncelleme sorunlarını önlemek için)
+                $delStmt = $pdo->prepare("DELETE FROM settings WHERE setting_key = ?");
+                $delStmt->execute([$key]);
+                
+                // Yeni değeri ekle
+                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, ?)");
+                $stmt->execute([$key, $value]);
             }
         }
 
         $pdo->commit();
-        $successMsg = "Sosyal giriş ayarları başarıyla güncellendi.";
+        header("Location: social-login-settings.php?success=1");
+        exit;
     } catch (Exception $e) {
         $pdo->rollBack();
         $errorMsg = "Hata oluştu: " . $e->getMessage();
@@ -33,6 +54,11 @@ $stmt = $pdo->query("SELECT * FROM settings");
 while ($row = $stmt->fetch()) {
     $settings[$row['setting_key']] = $row['setting_value'];
 }
+if (isset($_GET['success'])) {
+    $successMsg = "İşlem başarıyla tamamlandı.";
+}
+
+require_once 'includes/header.php';
 
 $protocol = ((!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') || $_SERVER['SERVER_PORT'] == 443 || (isset($_SERVER['HTTP_X_FORWARDED_PROTO']) && $_SERVER['HTTP_X_FORWARDED_PROTO'] == 'https')) ? "https://" : "http://";
 $host = $_SERVER['HTTP_HOST'];
@@ -65,9 +91,32 @@ $rootHost = str_replace('www.', '', $host);
                 </h4>
             </div>
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-2">API Anahtarı (Key)</label>
-                <input type="text" name="settings[google_maps_api_key]" value="<?= htmlspecialchars($settings['google_maps_api_key'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="AIza...">
-                <p class="text-xs text-slate-500 mt-1">Harita gösterimi ve konum otomatik tamamlama (Places API) için gereklidir.</p>
+                <label class="block text-sm font-bold text-slate-700 mb-2">Google Maps & Places API Anahtarı</label>
+                <div class="flex gap-2">
+                    <input type="text" id="google_maps_api_key" name="settings[google_maps_api_key]" value="<?= htmlspecialchars($settings['google_maps_api_key'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="AIza..." autocomplete="off">
+                    <button type="button" onclick="testGoogleMapsApiKey()" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">check_circle</span> Test Et
+                    </button>
+                </div>
+                <div class="mt-1 flex justify-between items-center">
+                    <p class="text-xs text-slate-500">Harita gösterimi (Maps JavaScript API) ve konum otomatik tamamlama (Places API) için kullanılan ana anahtardır.</p>
+                    <a href="?clear_maps_keys=1" onclick="return confirm('Harita API anahtarlarını veritabanından silmek istediğinize emin misiniz?')" class="text-xs text-red-500 hover:underline font-bold">Anahtarları Temizle</a>
+                </div>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm font-bold text-slate-700 mb-2">Geocoding API Anahtarı (Opsiyonel)</label>
+                <div class="flex gap-2">
+                    <input type="text" id="google_maps_geo_api_key" name="settings[google_maps_geo_api_key]" value="<?= htmlspecialchars($settings['google_maps_geo_api_key'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="AIza... (Boş bırakılırsa üstteki anahtar kullanılır)" autocomplete="off">
+                    <button type="button" onclick="testGeocodingApiKey()" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg font-bold text-sm whitespace-nowrap transition-colors flex items-center gap-2">
+                        <span class="material-symbols-outlined text-lg">check_circle</span> Test Et
+                    </button>
+                </div>
+                <p class="text-xs text-slate-500 mt-1">Otomatik konum bulma özelliği için kullanılır. Ayrı bir kota/anahtar kullanmak isterseniz doldurun.</p>
+            </div>
+            <div class="mt-4">
+                <label class="block text-sm font-bold text-slate-700 mb-2">URL İmzalama Gizli Anahtarı (Signing Secret)</label>
+                <input type="text" name="settings[google_maps_signing_secret]" value="<?= htmlspecialchars($settings['google_maps_signing_secret'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="vNIXE0xsc..." autocomplete="off">
+                <p class="text-xs text-slate-500 mt-1">Static Maps API gibi servisler için URL imzalama gerekiyorsa buraya giriniz (Opsiyonel).</p>
             </div>
         </div>
 
@@ -87,11 +136,11 @@ $rootHost = str_replace('www.', '', $host);
                 <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Google Client ID</label>
-                        <input type="text" name="settings[google_client_id]" value="<?= htmlspecialchars($settings['google_client_id'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Google API Console'dan alınan Client ID">
+                        <input type="text" name="settings[google_client_id]" value="<?= htmlspecialchars($settings['google_client_id'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Google API Console'dan alınan Client ID" autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Google Client Secret</label>
-                        <input type="text" name="settings[google_client_secret]" value="<?= htmlspecialchars($settings['google_client_secret'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Google API Console'dan alınan Client Secret">
+                        <input type="text" name="settings[google_client_secret]" value="<?= htmlspecialchars($settings['google_client_secret'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Google API Console'dan alınan Client Secret" autocomplete="off">
                     </div>
                     <div class="text-xs text-slate-500 bg-indigo-50 p-3 rounded-lg">
                         <strong>Yetkilendirilmiş yönlendirme URI'si:</strong> 
@@ -121,11 +170,11 @@ $rootHost = str_replace('www.', '', $host);
                 <div class="grid grid-cols-1 gap-4">
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Facebook App ID</label>
-                        <input type="text" name="settings[facebook_app_id]" value="<?= htmlspecialchars($settings['facebook_app_id'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Facebook for Developers'dan alınan App ID">
+                        <input type="text" name="settings[facebook_app_id]" value="<?= htmlspecialchars($settings['facebook_app_id'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Facebook for Developers'dan alınan App ID" autocomplete="off">
                     </div>
                     <div>
                         <label class="block text-sm font-bold text-slate-700 mb-2">Facebook App Secret</label>
-                        <input type="text" name="settings[facebook_app_secret]" value="<?= htmlspecialchars($settings['facebook_app_secret'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Facebook for Developers'dan alınan App Secret">
+                        <input type="text" name="settings[facebook_app_secret]" value="<?= htmlspecialchars($settings['facebook_app_secret'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Facebook for Developers'dan alınan App Secret" autocomplete="off">
                     </div>
                     <div class="text-xs text-slate-500 bg-indigo-50 p-3 rounded-lg">
                         <strong>Geçerli OAuth Yönlendirme URI'si:</strong> 
@@ -144,5 +193,77 @@ $rootHost = str_replace('www.', '', $host);
         </div>
     </form>
 </div>
+
+<script>
+function testGoogleMapsApiKey() {
+    const apiKey = document.getElementById('google_maps_api_key').value.trim();
+    if (!apiKey) {
+        alert('Lütfen önce bir API anahtarı girin.');
+        return;
+    }
+
+    const scriptId = 'google-maps-test-script';
+    const oldScript = document.getElementById(scriptId);
+    if (oldScript) oldScript.remove();
+
+    // Global hata yakalayıcı
+    window.gm_authFailure = function() {
+        alert('HATA: API Anahtarı geçersiz veya yetkilendirme hatası (Referrer kısıtlaması veya Faturalandırma hesabı eksik olabilir).');
+    };
+
+    const script = document.createElement('script');
+    script.id = scriptId;
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}&callback=googleMapsTestSuccess`;
+    script.async = true;
+    script.defer = true;
+    
+    window.googleMapsTestSuccess = function() {
+        alert('BAŞARILI: Google Maps API bağlantısı sağlandı.');
+    };
+
+    script.onerror = function() {
+        alert('HATA: Script yüklenemedi. İnternet bağlantınızı kontrol edin.');
+    };
+
+    document.body.appendChild(script);
+}
+
+function testGeocodingApiKey() {
+    let apiKey = document.getElementById('google_maps_geo_api_key').value.trim();
+    const mainApiKey = document.getElementById('google_maps_api_key').value.trim();
+    
+    if (!apiKey) {
+        if (mainApiKey) {
+            if (!confirm('Geocoding anahtarı boş. Ana API anahtarı (' + mainApiKey.substring(0, 5) + '...) kullanılarak test edilsin mi?')) {
+                return;
+            }
+            apiKey = mainApiKey;
+        } else {
+            alert('Lütfen test etmek için bir API anahtarı girin.');
+            return;
+        }
+    }
+
+    // Test URL (Istanbul coordinates)
+    const url = `https://maps.googleapis.com/maps/api/geocode/json?latlng=41.0082,28.9784&key=${apiKey}`;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'OK') {
+                alert('BAŞARILI: Geocoding API bağlantısı sağlandı.\nSonuç: ' + (data.results[0] ? data.results[0].formatted_address : 'Adres bulundu'));
+            } else {
+                let errorMsg = 'HATA: API yanıtı başarısız.\nDurum: ' + data.status + '\nMesaj: ' + (data.error_message || 'Detay yok');
+                if (data.status === 'REQUEST_DENIED' && (data.error_message && data.error_message.includes('not activated'))) {
+                    errorMsg += '\n\nÇÖZÜM: Google Cloud Console > APIs & Services > Library menüsünden "Geocoding API" servisini bulup ETKİNLEŞTİRİN (Enable).';
+                }
+                alert(errorMsg);
+            }
+        })
+        .catch(error => {
+            alert('HATA: İstek gönderilemedi.\n' + error);
+        });
+}
+</script>
 
 <?php require_once 'includes/footer.php'; ?>

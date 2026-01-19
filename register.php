@@ -91,7 +91,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     header("Location: provider/process-payment.php?package_id=" . $selectedPackageId);
                     exit;
                 } elseif ($redirectUrl) {
-                    header("Location: " . $redirectUrl);
+                    $sep = (strpos($redirectUrl, '?') !== false) ? '&' : '?';
+                    header("Location: " . $redirectUrl . $sep . "status=registered");
                     exit;
                 } else {
                     header("Location: index.php");
@@ -105,10 +106,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 }
-
-// Şehir ve İlçe verilerini çek (Form için)
-$cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
-$districts = $pdo->query("SELECT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
 
 require_once 'includes/header.php';
 ?>
@@ -164,24 +161,6 @@ require_once 'includes/header.php';
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">İl</label>
-                    <select name="city" id="citySelect" onchange="updateDistricts()" class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm">
-                        <option value="">Seçiniz</option>
-                        <?php foreach ($cities as $city): ?>
-                            <option value="<?= htmlspecialchars($city) ?>"><?= htmlspecialchars($city) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">İlçe</label>
-                    <select name="district" id="districtSelect" class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm">
-                        <option value="">Önce İl Seçiniz</option>
-                    </select>
-                </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Şifre</label>
                     <input name="password" type="password" required class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm">
                 </div>
@@ -210,14 +189,14 @@ require_once 'includes/header.php';
 
             <div class="space-y-3">
                 <?php if ($googleLoginActive): ?>
-                <a href="google-login.php" class="group relative flex w-full justify-center rounded-xl bg-[#DB4437] px-4 py-3 text-sm font-bold text-white hover:bg-[#c53929] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all shadow-sm">
+                <a href="google-login.php<?= $redirect ? '?redirect=' . urlencode($redirect) : '' ?>" class="group relative flex w-full justify-center rounded-xl bg-[#DB4437] px-4 py-3 text-sm font-bold text-white hover:bg-[#c53929] focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition-all shadow-sm">
                     <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M21.35,11.1H12.18V13.83H18.69C18.36,17.64 15.19,19.27 12.19,19.27C8.36,19.27 5,16.25 5,12C5,7.9 8.2,5 12,5C14.6,5 16.1,6.05 17.1,6.95L19.25,4.85C17.1,2.95 14.8,2 12,2C6.48,2 2,6.48 2,12C2,17.52 6.48,22 12,22C17.52,22 21.7,17.52 21.7,12.33C21.7,11.87 21.5,11.35 21.35,11.1Z"></path></svg>
                     Google ile Kayıt Ol
                 </a>
                 <?php endif; ?>
 
                 <?php if ($facebookLoginActive): ?>
-                <a href="facebook-login.php" class="group relative flex w-full justify-center rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">
+                <a href="facebook-login.php<?= $redirect ? '?redirect=' . urlencode($redirect) : '' ?>" class="group relative flex w-full justify-center rounded-xl bg-[#1877F2] px-4 py-3 text-sm font-bold text-white hover:bg-[#166fe5] focus:outline-none focus:ring-2 focus:ring-slate-500 focus:ring-offset-2 transition-all">
                     <svg class="w-5 h-5 mr-2" viewBox="0 0 24 24"><path fill="currentColor" d="M22 12c0-5.52-4.48-10-10-10S2 6.48 2 12c0 4.84 3.44 8.87 8 9.8V15H8v-3h2V9.5C10 7.57 11.57 6 13.5 6H16v3h-2c-.55 0-1 .45-1 1v2h3v3h-3v6.95c5.05-.5 9-4.76 9-9.95z"/></svg>
                     Facebook ile Kayıt Ol
                 </a>
@@ -228,25 +207,6 @@ require_once 'includes/header.php';
 </main>
 
 <script>
-    const districtsData = <?= json_encode($districts) ?>;
-
-    function updateDistricts() {
-        const citySelect = document.getElementById('citySelect');
-        const districtSelect = document.getElementById('districtSelect');
-        const selectedCity = citySelect.value;
-
-        districtSelect.innerHTML = '<option value="">Seçiniz</option>';
-
-        if (selectedCity && districtsData[selectedCity]) {
-            districtsData[selectedCity].forEach(district => {
-                const option = document.createElement('option');
-                option.value = district;
-                option.textContent = district;
-                districtSelect.appendChild(option);
-            });
-        }
-    }
-
     // Telefon Numarası Maskeleme (05XX XXX XX XX)
     const phoneInput = document.getElementById('phoneInput');
     if (phoneInput) {

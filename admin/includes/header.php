@@ -138,6 +138,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
                 <span class="material-symbols-outlined">support_agent</span>
                 Destek Talepleri
             </a>
+            <a href="announcements.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'announcements') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">campaign</span>
+                Duyurular
+            </a>
 
             <!-- Site Ayarları -->
             <div class="pt-4 pb-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Site Ayarları</div>
@@ -177,6 +181,18 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <a href="seo-settings.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'seo-settings') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">search</span>
                 SEO Ayarları
+            </a>
+            <a href="system-logs.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'system-logs') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">terminal</span>
+                Sistem Günlükleri
+            </a>
+            <a href="backup.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'backup') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">backup</span>
+                Veritabanı Yedekleme
+            </a>
+            <a href="repair-db.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'repair-db') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">build</span>
+                Veritabanı Onar
             </a>
         </nav>
 

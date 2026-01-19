@@ -1,6 +1,5 @@
 <?php
 require_once 'config/db.php';
-$pageTitle = "Anasayfa";
 
 // Popüler kategorileri veritabanından çek
 $popularCategories = [];
@@ -39,8 +38,33 @@ if (isset($_SESSION['user_id'])) {
 require_once 'includes/header.php';
 ?>
 
-<!-- Google Maps API -->
-<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&libraries=places"></script>
+<?php
+// Google Maps API Anahtarı Kontrolü (Fallback ile)
+$googleApiKey = $siteSettings['google_maps_api_key'] ?? '';
+$googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSettings['google_maps_geo_api_key'] : $googleApiKey;
+?>
+
+<style>
+    /* Google Autocomplete Dropdown Z-Index Fix ve Tasarım */
+    .pac-container {
+        z-index: 10000 !important; /* Dropdown'ın en üstte görünmesini sağlar */
+        border-radius: 1rem;
+        margin-top: 0.5rem;
+        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+        border: 1px solid rgba(226, 232, 240, 0.8);
+        font-family: 'Inter', sans-serif;
+    }
+    .pac-item {
+        padding: 0.75rem 1rem;
+        cursor: pointer;
+        border-top: 1px solid #f1f5f9;
+        font-size: 0.875rem;
+        color: #334155;
+    }
+    .pac-item:first-child { border-top: none; }
+    .pac-item:hover { background-color: #f8fafc; }
+    .pac-item-query { font-size: 0.875rem; color: #0f172a; font-weight: 600; }
+</style>
 
 <main>
     <div class="relative w-full min-h-[500px] flex items-center justify-center py-20">
@@ -68,7 +92,10 @@ require_once 'includes/header.php';
                 
                 <!-- Lokasyon Arama -->
                 <div class="flex-1 flex items-center px-4 group relative">
-                    <span class="material-symbols-outlined text-slate-400 group-focus-within:text-primary">location_on</span>
+                    <!-- Konumum Butonu -->
+                    <button type="button" id="btn-my-location" class="p-2 text-slate-400 hover:text-primary transition-colors" title="Konumumu Bul">
+                        <span class="material-symbols-outlined">my_location</span>
+                    </button>
                     <!-- ID'yi değiştirdik ki eski search.js çakışmasın -->
                     <input id="google-location-search" autocomplete="off" class="w-full border-none focus:ring-0 bg-transparent py-4 text-slate-800 dark:text-white placeholder:text-slate-500 font-semibold" placeholder="Konumunuzu arayın (İlçe, Mahalle...)" type="text" value="<?= htmlspecialchars($userLocationText) ?>"/>
                     
@@ -99,7 +126,7 @@ require_once 'includes/header.php';
             </div>
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-2xl">shield</span>
-                <span><?= htmlspecialchars($siteTitle) ?> Garantisi</span>
+                <span><?= htmlspecialchars($siteTitle) ?> İyi Teklif Garantisi</span>
             </div>
         </div>
     </div>
@@ -234,6 +261,34 @@ require_once 'includes/header.php';
     </section>
 </main>
 
+<!-- Popular Services Modal -->
+<div id="popular-services-modal" class="fixed inset-0 z-[80] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl p-6 max-w-2xl w-full mx-4 transform scale-95 transition-transform duration-300 relative">
+        <button onclick="closePopularServicesModal()" class="absolute top-4 right-4 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+            <span class="material-symbols-outlined text-2xl">close</span>
+        </button>
+        
+        <h3 class="text-2xl font-bold text-slate-900 dark:text-white mb-2">Popüler Hizmetler</h3>
+        <p class="text-slate-500 dark:text-slate-400 mb-6">Lütfen devam etmek için bir hizmet seçin veya arama yapın.</p>
+        
+        <div class="relative mb-4">
+            <span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-slate-400">search</span>
+            <input type="text" id="modal-service-search" class="w-full rounded-xl border-slate-200 dark:border-slate-700 dark:bg-slate-900 dark:text-white pl-10 py-3 focus:ring-primary focus:border-primary" placeholder="Listede ara...">
+        </div>
+
+        <div id="popular-services-grid" class="grid grid-cols-2 md:grid-cols-3 gap-4 max-h-[50vh] overflow-y-auto custom-scrollbar p-1">
+            <?php foreach($popularCategories as $cat): ?>
+                <div onclick="selectService('<?= $cat['slug'] ?>', '<?= htmlspecialchars($cat['name'], ENT_QUOTES) ?>')" class="cursor-pointer flex flex-col items-center justify-center p-4 rounded-xl border border-slate-100 dark:border-slate-700 hover:border-primary/50 hover:bg-primary/5 dark:hover:bg-slate-700/50 transition-all group text-center h-full">
+                    <div class="w-12 h-12 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center mb-3 group-hover:scale-110 transition-transform">
+                        <span class="material-symbols-outlined text-2xl"><?= $cat['icon'] ?: 'category' ?></span>
+                    </div>
+                    <span class="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover:text-primary transition-colors"><?= htmlspecialchars($cat['name']) ?></span>
+                </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+</div>
+
 <script>
     // Popüler Hizmetleri JS'e aktar
     const popularServicesData = <?= json_encode(array_map(function($cat) {
@@ -246,18 +301,30 @@ require_once 'includes/header.php';
 </script>
 <script src="assets/js/search.js"></script>
 <script>
+    // Google Maps API Yükleme Hatası Yakalama
+    window.gm_authFailure = function() {
+        console.error("Google Maps API Hatası: Kimlik doğrulama başarısız.");
+        alert("Harita servisi yüklenemedi. API Anahtarı geçersiz veya süresi dolmuş.");
+    };
+
     // Google Places Autocomplete Başlatma
-    function initAutocomplete() {
+    window.initAutocomplete = function() {
         const input = document.getElementById("google-location-search");
         if (!input) return;
 
         const options = {
             componentRestrictions: { country: "tr" }, // Sadece Türkiye
             fields: ["formatted_address", "geometry", "address_components"],
-            types: ["geocode"] // Yerleşim yerleri
+            types: ["geocode"] // Sokak, Cadde, İl, İlçe ve Mahalle odaklı arama
         };
 
-        const autocomplete = new google.maps.places.Autocomplete(input, options);
+        let autocomplete;
+        try {
+            autocomplete = new google.maps.places.Autocomplete(input, options);
+        } catch (e) {
+            console.error("Autocomplete başlatılamadı:", e);
+            return;
+        }
 
         autocomplete.addListener("place_changed", () => {
             const place = autocomplete.getPlace();
@@ -271,11 +338,18 @@ require_once 'includes/header.php';
             document.getElementById("g-lat").value = place.geometry.location.lat();
             document.getElementById("g-lng").value = place.geometry.location.lng();
 
-            // İl ve İlçe bilgisini ayrıştır
-            let city = "";
-            let district = "";
+            // Adres bileşenlerini ayrıştır (İl/İlçe)
+            parseAddressComponents(place.address_components);
+        });
+    };
 
-            for (const component of place.address_components) {
+    // Google Adres Bileşenlerini Ayrıştırma Fonksiyonu
+    function parseAddressComponents(components) {
+        let city = "";
+        let district = "";
+
+        if (components) {
+            for (const component of components) {
                 const types = component.types;
                 if (types.includes("administrative_area_level_1")) {
                     city = component.long_name; // İl (Örn: İstanbul)
@@ -283,19 +357,157 @@ require_once 'includes/header.php';
                 if (types.includes("administrative_area_level_2")) {
                     district = component.long_name; // İlçe (Örn: Kadıköy)
                 }
+                // Bazı durumlarda ilçe 'locality' veya 'sublocality' olabilir
+                if (!district && (types.includes("locality") || types.includes("sublocality_level_1"))) {
+                    district = component.long_name;
+                }
             }
+        }
+        
+        document.getElementById("g-city").value = city;
+        document.getElementById("g-district").value = district;
+
+        // Header ve Cookie Güncelleme
+        const locationName = city || district;
+        if (locationName) {
+            const headerLocText = document.getElementById('header-location-text');
+            if (headerLocText) {
+                headerLocText.textContent = locationName;
+            }
+            document.cookie = "user_location=" + encodeURIComponent(locationName) + "; path=/; max-age=" + (60*60*24*30);
             
-            document.getElementById("g-city").value = city;
-            document.getElementById("g-district").value = district;
-        });
+            // Veritabanına Kaydet (Eğer giriş yapmışsa)
+            // PHP tarafında isLoggedIn kontrolü yapıldığı için JS tarafında basitçe isteği atabiliriz,
+            // backend session yoksa reddeder.
+            const address = document.getElementById("g-address").value;
+            const lat = document.getElementById("g-lat").value;
+            const lng = document.getElementById("g-lng").value;
+
+            if (address) {
+                const formData = new FormData();
+                formData.append('address', address);
+                formData.append('lat', lat);
+                formData.append('lng', lng);
+                formData.append('city', city);
+                formData.append('district', district);
+
+                fetch('ajax/update-user-location.php', { method: 'POST', body: formData });
+            }
+        }
     }
+
+    // Modal Functions
+    window.openPopularServicesModal = function() {
+        const modal = document.getElementById('popular-services-modal');
+        if(modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                const content = modal.querySelector('div');
+                if(content) {
+                    content.classList.remove('scale-95');
+                    content.classList.add('scale-100');
+                }
+            }, 10);
+        }
+    }
+
+    window.closePopularServicesModal = function() {
+        const modal = document.getElementById('popular-services-modal');
+        if(modal) {
+            modal.classList.add('opacity-0');
+            const content = modal.querySelector('div');
+            if(content) {
+                content.classList.remove('scale-100');
+                content.classList.add('scale-95');
+            }
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+    
+    // Close modal on outside click
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('popular-services-modal');
+        if (modal && !modal.classList.contains('hidden') && event.target === modal) {
+            closePopularServicesModal();
+        }
+    });
+
+    // Hizmet Seçimi ve Modal Arama
+    window.selectService = function(slug, name) {
+        const serviceInput = document.getElementById('service-search');
+        const slugInput = document.getElementById('selected-service-slug');
+        const locationInput = document.getElementById('google-location-search');
+        
+        if(serviceInput) serviceInput.value = name;
+        if(slugInput) slugInput.value = slug;
+        
+        closePopularServicesModal();
+        
+        // Konum seçilmemişse konuma odaklan
+        if(locationInput && !locationInput.value) {
+            setTimeout(() => {
+                locationInput.focus();
+            }, 300);
+        }
+    };
+
+    document.getElementById('modal-service-search')?.addEventListener('input', function(e) {
+        const term = e.target.value.toLowerCase();
+        const items = document.querySelectorAll('#popular-services-grid > div');
+        items.forEach(item => {
+            const text = item.querySelector('span').textContent.toLowerCase();
+            if(text.includes(term)) {
+                item.classList.remove('hidden');
+            } else {
+                item.classList.add('hidden');
+            }
+        });
+    });
+
+    // Modal Functions
+    window.openPopularServicesModal = function() {
+        const modal = document.getElementById('popular-services-modal');
+        if(modal) {
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modal.classList.remove('opacity-0');
+                const content = modal.querySelector('div');
+                if(content) {
+                    content.classList.remove('scale-95');
+                    content.classList.add('scale-100');
+                }
+            }, 10);
+        }
+    }
+
+    window.closePopularServicesModal = function() {
+        const modal = document.getElementById('popular-services-modal');
+        if(modal) {
+            modal.classList.add('opacity-0');
+            const content = modal.querySelector('div');
+            if(content) {
+                content.classList.remove('scale-100');
+                content.classList.add('scale-95');
+            }
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+    }
+    
+    // Close modal on outside click
+    document.addEventListener('click', function(event) {
+        const modal = document.getElementById('popular-services-modal');
+        if (modal && !modal.classList.contains('hidden') && event.target === modal) {
+            closePopularServicesModal();
+        }
+    });
 
     // Sayfa yüklendiğinde çalıştır
     document.addEventListener("DOMContentLoaded", function() {
-        if (typeof google !== 'undefined' && google.maps && google.maps.places) {
-            initAutocomplete();
-        }
-        
         // search.js içindeki butona tıklama olayını override ediyoruz
         const findBtn = document.getElementById('btn-find-service-custom');
         if(findBtn) {
@@ -306,59 +518,235 @@ require_once 'includes/header.php';
                 e.preventDefault();
                 e.stopPropagation();
 
-                // Loading Başlat
+                const serviceSlug = document.getElementById('selected-service-slug')?.value;
+                const serviceText = document.getElementById('service-search')?.value;
+                
+                // Helper to stop loading
+                const stopLoading = () => {
+                    findBtn.innerHTML = originalContent;
+                    findBtn.disabled = false;
+                    findBtn.classList.remove('opacity-80', 'cursor-not-allowed');
+                };
+
+                if (!serviceSlug && !serviceText) {
+                    // Hizmet seçilmediyse modal aç
+                    openPopularServicesModal();
+                    return;
+                }
                 const originalContent = findBtn.innerHTML;
+
+                // Arama Fonksiyonu
+                const performSearch = () => {
+                    // Loading Başlat (Eğer başlatılmadıysa)
+                    findBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-xl">progress_activity</span> Aranıyor...';
+                    findBtn.disabled = true;
+                    findBtn.classList.add('opacity-80', 'cursor-not-allowed');
+
+                    // Güncel değerleri al
+                    const finalGAddress = document.getElementById('g-address').value;
+                    const finalGLat = document.getElementById('g-lat').value;
+                    const finalGLng = document.getElementById('g-lng').value;
+                    const finalGCity = document.getElementById('g-city').value;
+                    const finalGDistrict = document.getElementById('g-district').value;
+                    const finalRawLoc = document.getElementById('google-location-search').value;
+
+                    let url = `teklif-al.php?service=${encodeURIComponent(serviceSlug || '')}`;
+                    
+                    if (finalGAddress && finalGLat) {
+                        // Google verileri tam ise
+                        url += `&address=${encodeURIComponent(finalGAddress)}&lat=${finalGLat}&lng=${finalGLng}&city=${encodeURIComponent(finalGCity)}&district=${encodeURIComponent(finalGDistrict)}`;
+                    } else {
+                        // Sadece metin varsa (Fallback)
+                        if(finalRawLoc) url += `&raw_location=${encodeURIComponent(finalRawLoc)}`;
+                    }
+                    window.location.href = url;
+                };
+
+                const rawLoc = document.getElementById('google-location-search').value;
+
+                // Konum metni girilmemişse Geolocation dene
+                if (!rawLoc) {
+                    if (navigator.geolocation) {
+                        findBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-xl">progress_activity</span> Konum alınıyor...';
+                        findBtn.disabled = true;
+                        findBtn.classList.add('opacity-80', 'cursor-not-allowed');
+
+                        navigator.geolocation.getCurrentPosition(
+                            (position) => {
+                                const lat = position.coords.latitude;
+                                const lng = position.coords.longitude;
+
+                                // Google Maps JS Geocoder Kullan (Daha kararlı)
+                                if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+                                    const geocoder = new google.maps.Geocoder();
+                                    geocoder.geocode({ location: { lat: lat, lng: lng } }, (results, status) => {
+                                        if (status === "OK" && results[0]) {
+                                            const place = results[0];
+                                            document.getElementById("g-address").value = place.formatted_address;
+                                            document.getElementById("g-lat").value = lat;
+                                            document.getElementById("g-lng").value = lng;
+                                            document.getElementById("google-location-search").value = place.formatted_address;
+
+                                            // Adres bileşenlerini ayrıştır
+                                            parseAddressComponents(place.address_components);
+
+                                            performSearch();
+                                        } else {
+                                            console.error("Geocoder failed: " + status);
+                                            alert('Adres çözümlenemedi. Lütfen manuel seçiniz.');
+                                            stopLoading();
+                                        }
+                                    });
+                                } else {
+                                    // JS API yüklenmediyse REST API dene (Yedek)
+                                    const geoApiKey = '<?= $googleGeoApiKey ?>';
+                                    fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${geoApiKey}&language=tr`)
+                                        .then(response => response.json())
+                                        .then(data => {
+                                            if (data.status === 'OK' && data.results[0]) {
+                                                const place = data.results[0];
+                                                document.getElementById("g-address").value = place.formatted_address;
+                                                document.getElementById("g-lat").value = lat;
+                                                document.getElementById("g-lng").value = lng;
+                                                document.getElementById("google-location-search").value = place.formatted_address;
+                                                
+                                                parseAddressComponents(place.address_components);
+                                                performSearch();
+                                            } else {
+                                                console.error('Geocoding API Error:', data.status, data.error_message);
+                                                alert('Adres çözümlenemedi. Lütfen manuel seçiniz.');
+                                                stopLoading();
+                                            }
+                                        })
+                                        .catch(err => {
+                                            console.error(err);
+                                            alert('Konum servisi hatası. Lütfen manuel seçiniz.');
+                                            stopLoading();
+                                        });
+                                }
+                            },
+                            (error) => {
+                                console.warn("Geolocation error:", error);
+                                alert('Konum alınamadı. Lütfen arama kutusundan konum seçiniz.');
+                                stopLoading();
+                                document.getElementById('google-location-search')?.focus();
+                            },
+                            { timeout: 10000 }
+                        );
+                    } else {
+                        alert('Tarayıcınız konum özelliğini desteklemiyor. Lütfen manuel seçiniz.');
+                        document.getElementById('google-location-search')?.focus();
+                    }
+                    return;
+                }
+
+                // Konum varsa normal akış (Manuel giriş kontrolü)
                 findBtn.innerHTML = '<span class="material-symbols-outlined animate-spin text-xl">progress_activity</span> Aranıyor...';
                 findBtn.disabled = true;
                 findBtn.classList.add('opacity-80', 'cursor-not-allowed');
 
-                const serviceSlug = document.getElementById('selected-service-slug')?.value;
-                const serviceText = document.getElementById('service-search')?.value;
-                
-                // Google verileri
-                const gAddress = document.getElementById('g-address').value;
-                const gLat = document.getElementById('g-lat').value;
-                const gLng = document.getElementById('g-lng').value;
-                const gCity = document.getElementById('g-city').value;
-                const gDistrict = document.getElementById('g-district').value;
-                const rawLoc = document.getElementById('google-location-search').value;
-
-                if (!serviceSlug && !serviceText) {
-                    // Hizmet seçilmediyse arama kutusuna odaklan
-                    document.getElementById('service-search')?.focus();
-                    
-                    // Loading Durdur
-                    findBtn.innerHTML = originalContent;
-                    findBtn.disabled = false;
-                    findBtn.classList.remove('opacity-80', 'cursor-not-allowed');
-                    return;
-                }
-
-                if (!gAddress && !rawLoc) {
-                    alert('Lütfen bir konum seçiniz.');
-                    // Loading Durdur
-                    findBtn.innerHTML = originalContent;
-                    findBtn.disabled = false;
-                    findBtn.classList.remove('opacity-80', 'cursor-not-allowed');
-                    return;
-                }
-
-                // URL Oluşturma
-                let url = `teklif-al.php?service=${encodeURIComponent(serviceSlug || '')}`;
-                
-                if (gAddress) {
-                    // Google verileri varsa onları gönder
-                    url += `&address=${encodeURIComponent(gAddress)}&lat=${gLat}&lng=${gLng}&city=${encodeURIComponent(gCity)}&district=${encodeURIComponent(gDistrict)}`;
+                // Eğer koordinat yoksa ama metin varsa (Manuel giriş veya API hatası)
+                // Geocoding servisini manuel tetiklemeyi dene
+                const currentLat = document.getElementById('g-lat').value;
+                if (!currentLat && rawLoc && typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+                    const geocoder = new google.maps.Geocoder();
+                    geocoder.geocode({ 'address': rawLoc, 'componentRestrictions': { 'country': 'TR' } }, function(results, status) {
+                        if (status === 'OK' && results[0]) {
+                            const place = results[0];
+                            document.getElementById("g-address").value = place.formatted_address;
+                            document.getElementById("g-lat").value = place.geometry.location.lat();
+                            document.getElementById("g-lng").value = place.geometry.location.lng();
+                            
+                            parseAddressComponents(place.address_components);
+                        }
+                        // Her durumda aramayı yap (Bulunsa da bulunmasa da)
+                        performSearch();
+                    });
                 } else {
-                    // Yoksa inputtaki metni gönder (Fallback)
-                    if(rawLoc) url += `&raw_location=${encodeURIComponent(rawLoc)}`;
+                    // Geocoder yoksa veya zaten koordinat varsa direkt ara
+                    performSearch();
+                }
+            };
+        }
+
+        // Konumum Butonu İşlevi
+        const myLocationBtn = document.getElementById('btn-my-location');
+        if (myLocationBtn) {
+            myLocationBtn.addEventListener('click', () => {
+                if (!navigator.geolocation) {
+                    alert('Tarayıcınız konum servisini desteklemiyor.');
+                    return;
                 }
 
-                window.location.href = url;
-            };
+                const originalIcon = myLocationBtn.innerHTML;
+                myLocationBtn.innerHTML = '<span class="material-symbols-outlined animate-spin">progress_activity</span>';
+                myLocationBtn.disabled = true;
+
+                navigator.geolocation.getCurrentPosition(
+                    (position) => {
+                        const lat = position.coords.latitude;
+                        const lng = position.coords.longitude;
+
+                        // Google Maps JS Geocoder Kullan
+                        if (typeof google !== 'undefined' && google.maps && google.maps.Geocoder) {
+                            const geocoder = new google.maps.Geocoder();
+                            geocoder.geocode({ location: { lat: lat, lng: lng } }, (results, status) => {
+                                if (status === "OK" && results[0]) {
+                                    const place = results[0];
+                                    document.getElementById("g-address").value = place.formatted_address;
+                                    document.getElementById("g-lat").value = lat;
+                                    document.getElementById("g-lng").value = lng;
+                                    document.getElementById("google-location-search").value = place.formatted_address;
+                                    
+                                    parseAddressComponents(place.address_components);
+                                } else {
+                                    alert('Adres çözümlenemedi.');
+                                }
+                                myLocationBtn.innerHTML = originalIcon;
+                                myLocationBtn.disabled = false;
+                            });
+                        } else {
+                            // Fallback REST API
+                            const geoApiKey = '<?= $googleGeoApiKey ?>';
+                            fetch(`https://maps.googleapis.com/maps/api/geocode/json?latlng=${lat},${lng}&key=${geoApiKey}&language=tr`)
+                                .then(response => response.json())
+                                .then(data => {
+                                    if (data.status === 'OK' && data.results[0]) {
+                                        const place = data.results[0];
+                                        document.getElementById("g-address").value = place.formatted_address;
+                                        document.getElementById("g-lat").value = lat;
+                                        document.getElementById("g-lng").value = lng;
+                                        document.getElementById("google-location-search").value = place.formatted_address;
+                                        
+                                        parseAddressComponents(place.address_components);
+                                    } else {
+                                        alert('Adres çözümlenemedi.');
+                                    }
+                                })
+                                .catch(err => alert('Konum servisi hatası.'))
+                                .finally(() => {
+                                    myLocationBtn.innerHTML = originalIcon;
+                                    myLocationBtn.disabled = false;
+                                });
+                        }
+                    },
+                    (error) => {
+                        console.warn("Geolocation error:", error);
+                        let msg = 'Konum alınamadı.';
+                        if (error.code === 1) msg = 'Konum izni reddedildi.';
+                        alert(msg);
+                        myLocationBtn.innerHTML = originalIcon;
+                        myLocationBtn.disabled = false;
+                    },
+                    { timeout: 10000, enableHighAccuracy: true }
+                );
+            });
         }
     });
 </script>
+
+<!-- Google Maps API (Callback ile yükleme - Daha kararlı çalışır) -->
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleApiKey) ?>&libraries=places&callback=initAutocomplete" async defer></script>
 
 <?php if (!$isLoggedIn): ?>
 <!-- Google Login Prompt -->
