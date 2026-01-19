@@ -117,6 +117,31 @@ $headerMenuItems = [];
 if (isset($pdo)) {
     $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'header' AND is_active = 1 ORDER BY sort_order ASC");
     $headerMenuItems = $stmt->fetchAll();
+    
+    // Mega Menü Öğelerini Çek
+    $megaMenuItemsRaw = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'mega_menu' AND is_active = 1 ORDER BY sort_order ASC")->fetchAll();
+    
+    // Önce ebeveynlerin işlendiğinden emin olmak için sıralama yapıyoruz
+    usort($megaMenuItemsRaw, function($a, $b) {
+        // Parent ID'si olmayanlar (Ana kategoriler) önce gelsin
+        $aIsParent = empty($a['parent_id']);
+        $bIsParent = empty($b['parent_id']);
+        
+        if ($aIsParent && !$bIsParent) return -1;
+        if (!$aIsParent && $bIsParent) return 1;
+        
+        return $a['sort_order'] <=> $b['sort_order'];
+    });
+
+    $megaMenuTree = [];
+    foreach ($megaMenuItemsRaw as $item) {
+        if (empty($item['parent_id'])) {
+            $megaMenuTree[$item['id']] = $item;
+            $megaMenuTree[$item['id']]['children'] = [];
+        } else {
+            $megaMenuTree[$item['parent_id']]['children'][] = $item;
+        }
+    }
 }
 
 // Konum Cookie Kontrolü
@@ -240,72 +265,24 @@ if (isset($pdo)) {
                                 <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>provider/apply.php">Hizmet Veren Ol</a>
                                 <a class="block text-lg font-bold text-slate-800 dark:text-slate-200 hover:text-primary" href="<?= $pathPrefix ?>nasil-calisir.php">Nasıl Çalışır?</a>
                             </div>
+                            
+                            <!-- Dinamik Mega Menü -->
                             <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-10">
+                                <?php foreach ($megaMenuTree as $parent): ?>
                                 <div>
                                     <div class="flex items-center gap-2 mb-6 text-primary dark:text-accent">
-                                        <span class="material-symbols-outlined">cleaning_services</span>
-                                        <h4 class="font-black text-lg uppercase tracking-tight">Ev Temizliği & Hizmetleri</h4>
+                                        <?php if ($parent['icon']): ?>
+                                            <span class="material-symbols-outlined"><?= htmlspecialchars($parent['icon']) ?></span>
+                                        <?php endif; ?>
+                                        <h4 class="font-black text-lg uppercase tracking-tight"><?= htmlspecialchars($parent['title']) ?></h4>
                                     </div>
                                     <ul class="space-y-4">
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Ev Temizliği <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Ofis Temizliği <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">İnşaat Sonrası Temizlik <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Koltuk Yıkama <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Halı Yıkama <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
+                                        <?php foreach ($parent['children'] as $child): ?>
+                                            <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="<?= htmlspecialchars($child['url']) ?>" target="<?= htmlspecialchars($child['target']) ?>"><?= htmlspecialchars($child['title']) ?> <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
+                                        <?php endforeach; ?>
                                     </ul>
                                 </div>
-                                <div>
-                                    <div class="flex items-center gap-2 mb-6 text-primary dark:text-accent">
-                                        <span class="material-symbols-outlined">format_paint</span>
-                                        <h4 class="font-black text-lg uppercase tracking-tight">Tadilat & Dekorasyon</h4>
-                                    </div>
-                                    <ul class="space-y-4">
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Boya Badana <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Mutfak Yenileme <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Banyo Tadilatı <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Elektrik Tesisatı <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Alçıpan & Kartonpiyer <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2 mb-6 text-primary dark:text-accent">
-                                        <span class="material-symbols-outlined">local_shipping</span>
-                                        <h4 class="font-black text-lg uppercase tracking-tight">Nakliyat & Depolama</h4>
-                                    </div>
-                                    <ul class="space-y-4">
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Evden Eve Nakliyat <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Şehirler Arası Nakliyat <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Eşya Depolama <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Ofis Taşıma <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Parça Eşya Taşıma <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2 mb-6 text-primary dark:text-accent">
-                                        <span class="material-symbols-outlined">school</span>
-                                        <h4 class="font-black text-lg uppercase tracking-tight">Özel Ders</h4>
-                                    </div>
-                                    <ul class="space-y-4">
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Matematik <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">İngilizce <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">LGS & YKS Hazırlık <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">İlkokul Takviye <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Müzik & Enstrüman <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                    </ul>
-                                </div>
-                                <div>
-                                    <div class="flex items-center gap-2 mb-6 text-primary dark:text-accent">
-                                        <span class="material-symbols-outlined">health_and_safety</span>
-                                        <h4 class="font-black text-lg uppercase tracking-tight">Sağlık & Kişisel Bakım</h4>
-                                    </div>
-                                    <ul class="space-y-4">
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Diyetisyen <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Psikolog <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Kişisel Eğitmen <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Fizyoterapist <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                        <li><a class="text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent font-medium flex items-center justify-between group" href="#">Evde Bakım <span class="material-symbols-outlined text-sm opacity-0 group-hover:opacity-100 transition-opacity">chevron_right</span></a></li>
-                                    </ul>
-                                </div>
+                                <?php endforeach; ?>
                             </div>
                             <div class="mt-16 pt-8 border-t border-slate-100 dark:border-slate-800 flex justify-between items-center">
                                 <div class="flex gap-4">

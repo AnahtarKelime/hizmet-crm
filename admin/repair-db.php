@@ -120,6 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
         ['contact_messages', 'is_read', 'TINYINT(1) DEFAULT 0'],
         ['reviews', 'is_approved', 'TINYINT(1) DEFAULT 0'],
         ['reviews', 'criteria_ratings', 'JSON DEFAULT NULL'],
+        ['menu_items', 'parent_id', 'INT(11) DEFAULT NULL'],
+        ['menu_items', 'icon', 'VARCHAR(50) DEFAULT NULL'],
     ];
 
     foreach ($columnsToCheck as $col) {

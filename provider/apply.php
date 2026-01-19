@@ -74,7 +74,7 @@ $districts = $pdo->query("SELECT city, district FROM locations ORDER BY district
                 </div>
             <?php endif; ?>
 
-            <form action="process-application.php" method="POST" enctype="multipart/form-data">
+            <form action="process-application.php" method="POST">
                 <!-- Section 1: Expertise -->
                 <div class="mb-10">
                     <div class="flex items-center gap-2 mb-4">
@@ -95,30 +95,10 @@ $districts = $pdo->query("SELECT city, district FROM locations ORDER BY district
                     <p class="text-xs text-slate-500 mt-4">* Sadece bir ana uzmanlık alanı seçebilirsiniz.</p>
                 </div>
 
-                <!-- Section 2: Documents -->
+                <!-- Section 2: Region Selection -->
                 <div class="mb-10">
                     <div class="flex items-center gap-2 mb-4">
                         <span class="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">2</span>
-                        <h2 class="text-primary dark:text-white text-2xl font-bold leading-tight">Belge Yükleme</h2>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        <!-- Upload Box 1 -->
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-bold text-slate-900 dark:text-white">Vergi Levhası</label>
-                            <input type="file" name="doc_tax_plate" accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl">
-                        </div>
-                        <!-- Upload Box 2 -->
-                        <div class="flex flex-col gap-2">
-                            <label class="text-sm font-bold text-slate-900 dark:text-white">Kimlik / Ustalık Belgesi</label>
-                            <input type="file" name="doc_identity" accept=".pdf,.jpg,.jpeg,.png" class="block w-full text-sm text-slate-500 file:mr-4 file:py-3 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100 border border-slate-200 rounded-xl">
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Section 3: Region Selection -->
-                <div class="mb-10">
-                    <div class="flex items-center gap-2 mb-4">
-                        <span class="bg-primary text-white w-8 h-8 rounded-full flex items-center justify-center font-bold">3</span>
                         <h2 class="text-primary dark:text-white text-2xl font-bold leading-tight">Hizmet Bölgesi Seçimi</h2>
                     </div>
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-6 rounded-xl border border-slate-200 dark:border-slate-700">
@@ -132,11 +112,11 @@ $districts = $pdo->query("SELECT city, district FROM locations ORDER BY district
                             </select>
                         </div>
                         <div class="flex flex-col gap-2">
-                            <label class="text-sm font-medium text-slate-900 dark:text-white">İlçe (Opsiyonel)</label>
-                            <select name="districts" id="districtSelect" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-900 focus:ring-primary focus:border-primary">
-                                <option value="">Tüm Şehir</option>
-                            </select>
-                            <p class="text-xs text-slate-500">Belirli bir ilçe seçmezseniz, seçtiğiniz ilin tamamındaki işleri görebilirsiniz.</p>
+                            <label class="text-sm font-medium text-slate-900 dark:text-white">Hizmet Vereceğiniz İlçeler</label>
+                            <div id="districtsContainer" class="w-full rounded-lg border border-slate-200 dark:border-slate-700 dark:bg-slate-900 p-3 max-h-60 overflow-y-auto grid grid-cols-1 gap-2 custom-scrollbar">
+                                <div class="text-sm text-slate-500 italic p-2">Önce il seçiniz.</div>
+                            </div>
+                            <p class="text-xs text-slate-500">Hiçbir ilçe seçmezseniz, tüm şehirde hizmet verdiğiniz varsayılır.</p>
                         </div>
                     </div>
                 </div>
@@ -155,33 +135,6 @@ $districts = $pdo->query("SELECT city, district FROM locations ORDER BY district
                 </div>
             </form>
         </div>
-
-        <!-- Sidebar Information -->
-        <aside class="lg:w-80 flex flex-col gap-6">
-            <div class="sticky top-24 bg-primary text-white p-8 rounded-2xl shadow-xl">
-                <h3 class="text-xl font-bold mb-6 border-b border-white/20 pb-4">Neden Bize Katılmalısın?</h3>
-                <div class="flex flex-col gap-6">
-                    <div class="flex gap-4">
-                        <span class="material-symbols-outlined text-accent">group</span>
-                        <div>
-                            <p class="font-bold">Binlerce Yeni Müşteri</p>
-                            <p class="text-sm text-blue-100 mt-1">Her gün binlerce kişi hizmet arıyor, biz sizi onlarla buluşturuyoruz.</p>
-                        </div>
-                    </div>
-                    <div class="flex gap-4">
-                        <span class="material-symbols-outlined text-accent">payments</span>
-                        <div>
-                            <p class="font-bold">Güvenli Ödeme</p>
-                            <p class="text-sm text-blue-100 mt-1">Ödemeleriniz platform güvencesiyle hesabınıza aktarılır.</p>
-                        </div>
-                    </div>
-                </div>
-                <div class="mt-8 pt-6 border-t border-white/20 text-center">
-                    <p class="text-xs text-blue-200">Yardıma mı ihtiyacınız var?</p>
-                    <p class="font-bold mt-1">0850 123 45 67</p>
-                </div>
-            </div>
-        </aside>
     </div>
 </main>
 
@@ -190,19 +143,33 @@ $districts = $pdo->query("SELECT city, district FROM locations ORDER BY district
 
     function updateDistricts() {
         const citySelect = document.getElementById('citySelect');
-        const districtSelect = document.getElementById('districtSelect');
+        const container = document.getElementById('districtsContainer');
         const selectedCity = citySelect.value;
 
         // İlçeleri temizle
-        districtSelect.innerHTML = '<option value="">Tüm Şehir</option>';
+        container.innerHTML = '';
 
         if (selectedCity && districtsData[selectedCity]) {
             districtsData[selectedCity].forEach(district => {
-                const option = document.createElement('option');
-                option.value = district;
-                option.textContent = district;
-                districtSelect.appendChild(option);
+                const label = document.createElement('label');
+                label.className = 'flex items-center gap-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800 p-1.5 rounded transition-colors';
+                
+                const checkbox = document.createElement('input');
+                checkbox.type = 'checkbox';
+                checkbox.name = 'districts[]';
+                checkbox.value = district;
+                checkbox.className = 'rounded border-slate-300 text-primary focus:ring-primary w-4 h-4';
+                
+                const span = document.createElement('span');
+                span.className = 'text-sm text-slate-700 dark:text-slate-300 select-none';
+                span.textContent = district;
+                
+                label.appendChild(checkbox);
+                label.appendChild(span);
+                container.appendChild(label);
             });
+        } else {
+            container.innerHTML = '<div class="text-sm text-slate-500 italic p-2">Önce il seçiniz.</div>';
         }
     }
 </script>

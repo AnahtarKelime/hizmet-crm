@@ -201,7 +201,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
         </div>
         <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
             <h3 class="text-4xl font-black text-white mb-8">İşini büyütmek mi istiyorsun?</h3>
-            <p class="text-white/80 mb-12 text-xl font-medium"><?= htmlspecialchars($siteTitle) ?> ile her gün binlerce yeni müşteriye ulaş. Hemen ücretsiz profilini oluştur ve teklif vermeye baş.</p>
+            <p class="text-white/80 mb-12 text-xl font-medium"> İyi Teklif ile her gün binlerce yeni müşteriye ulaş. Hemen ücretsiz profilini oluştur ve teklif vermeye baş.</p>
             <div class="flex flex-col sm:flex-row justify-center gap-6">
                 <button class="bg-accent hover:bg-white text-primary font-black px-12 py-5 rounded-2xl transition-all text-xl shadow-2xl" onclick="window.location.href='provider/apply.php'">
                     Hizmet Veren Ol
@@ -226,7 +226,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 rounded-full bg-slate-200 border-2 border-accent" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDqzP4pviRTHmKg5-1be9yin5jqmzQEVLDYVyJFPEjxZYru2gh6Osi7sCulVv2EiM6T7apYH5EkC6lb-tNeU4wuiuhhbp6bYcLvg-2dSu3PjymxNnRA70belHUssVcUwAGdENwGVZb2jkEIZTXP060j3hOUHGXu9dpz3VkgZSrE3IB4Sz4EvUHQeYtAdbRbPcb60vTfykdc0dyywgThbcf_BMXN3Rm8FWHQ4ELsIKK57oO0oJ8270Xqk4-puPgRJ16AhcpCmSXG23Y'); background-size: cover;"></div>
                     <div>
-                        <p class="font-black text-slate-900 dark:text-white">Ahmet Selim</p>
+                        <p class="font-black text-slate-900 dark:text-white">Seda Bakış</p>
                         <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Nakliyat Hizmeti</p>
                     </div>
                 </div>
@@ -239,7 +239,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 rounded-full bg-slate-200 border-2 border-accent" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuDPIJ20C4HD992lCY9eVFUUaVo2dRKlY7xAyhHNrMuNzupXEay5zN2mUAEBAtn4qTujuoYeOSuKjJQ3goIfqyv09yTdzcScmpRuQdeasnClljzlJAUv8gMDUzeLoRGAoWq3XTSP3qdccmERIZPwqkQeDTW28xMf1BN4AojxzmMmHi4NRDBO-ennXbLa3BMP1Tv68q-U8pfyzefD1fS8awNpOSoskig8N2RYMb3296Y4NGZAoZ913SXWLZp8nM_r05y0Ft7WAhacMPA'); background-size: cover;"></div>
                     <div>
-                        <p class="font-black text-slate-900 dark:text-white">Merve Kaya</p>
+                        <p class="font-black text-slate-900 dark:text-white">Burak Üzel</p>
                         <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Temizlik Hizmeti</p>
                     </div>
                 </div>
@@ -248,11 +248,11 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
                 <div class="flex gap-1 text-accent mb-6">
                     <span class="material-symbols-outlined fill-1">star</span><span class="material-symbols-outlined fill-1">star</span><span class="material-symbols-outlined fill-1">star</span><span class="material-symbols-outlined fill-1">star</span><span class="material-symbols-outlined fill-1">star</span>
                 </div>
-                <p class="text-slate-700 dark:text-slate-300 mb-8 font-semibold text-lg leading-relaxed">"Tadilat işleri hep korkutucudur ama <?= htmlspecialchars($siteTitle) ?> üzerinden bulduğumuz usta çok titiz ve dürüst çıktı."</p>
+                <p class="text-slate-700 dark:text-slate-300 mb-8 font-semibold text-lg leading-relaxed">"Tadilat işleri hep korkutucudur ama iyi teklif üzerinden bulduğumuz usta çok titiz ve dürüst çıktı."</p>
                 <div class="flex items-center gap-4">
                     <div class="w-14 h-14 rounded-full bg-slate-200 border-2 border-accent" style="background-image: url('https://lh3.googleusercontent.com/aida-public/AB6AXuCllGvrDgGk16uxQojJY6f9NUv3lM25K2Ani2BP3PKIFjBh0DpTqtw2jpdrR0aULWBk-2gksH0tNVlOZmJE7D4eZ-hKz0ZsEkC_iPQqL5tlIC7zWPmIMjz9lv8PduT9Kac_IH0VHmbEt-0D4akvT3lI7jnz0OaI3X4UQKXShJmla_7SjOJoJcKmw56sf4CdV3esn8vSI3iG_WNOjJ7x1i-H2Eb1pH6b0tOjE9ngTonwqFRtMgiyIfN7JmeKw69h3ISfQUmcXCXq9yo'); background-size: cover;"></div>
                     <div>
-                        <p class="font-black text-slate-900 dark:text-white">Burak Öztürk</p>
+                        <p class="font-black text-slate-900 dark:text-white">Merve Şen</p>
                         <p class="text-sm text-slate-500 font-bold uppercase tracking-wider">Tadilat Hizmeti</p>
                     </div>
                 </div>

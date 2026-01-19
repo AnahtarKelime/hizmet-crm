@@ -12,7 +12,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $userId = $_SESSION['user_id'];
     $categoryId = $_POST['category_id'] ?? null;
     $city = $_POST['city'] ?? '';
-    $districts = $_POST['districts'] ?? null;
+    $districtsInput = $_POST['districts'] ?? null;
+
+    $districts = null;
+    if (is_array($districtsInput)) {
+        $districts = implode(', ', $districtsInput);
+    } elseif (is_string($districtsInput)) {
+        $districts = $districtsInput;
+    }
 
     try {
         $pdo->beginTransaction();
@@ -37,45 +44,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt->execute([$userId, $city, $districts]);
         }
 
-        // 3. Evrakları Yükle ve Kaydet
-        $uploadDir = '../uploads/documents/';
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-
-        $documents = [
-            'doc_tax_plate' => 'Vergi Levhası',
-            'doc_identity' => 'Kimlik',
-            'doc_residence' => 'İkametgah'
-        ];
-
-        $stmt = $pdo->prepare("INSERT INTO provider_documents (user_id, document_type, file_path) VALUES (?, ?, ?)");
-
-        foreach ($documents as $inputName => $docType) {
-            if (isset($_FILES[$inputName]) && $_FILES[$inputName]['error'] === UPLOAD_ERR_OK) {
-                $tmpName = $_FILES[$inputName]['tmp_name'];
-                $name = basename($_FILES[$inputName]['name']);
-                $ext = strtolower(pathinfo($name, PATHINFO_EXTENSION));
-                
-                // MIME Type Kontrolü
-                $finfo = finfo_open(FILEINFO_MIME_TYPE);
-                $mimeType = finfo_file($finfo, $tmpName);
-                finfo_close($finfo);
-
-                $allowedMimes = ['image/jpeg', 'image/png', 'application/pdf'];
-                $allowedExts = ['jpg', 'jpeg', 'png', 'pdf'];
-                
-                // Güvenlik: Sadece belirli uzantılara izin ver
-                if (in_array($ext, $allowedExts) && in_array($mimeType, $allowedMimes)) {
-                    $newName = uniqid('doc_', true) . '.' . $ext; // Rastgele isim
-                    if (move_uploaded_file($tmpName, $uploadDir . $newName)) {
-                        $stmt->execute([$userId, $docType, 'uploads/documents/' . $newName]);
-                    }
-                }
-            }
-        }
-
-        // 4. Başvuru Durumunu Güncelle
+        // 3. Başvuru Durumunu Güncelle
         $stmt = $pdo->prepare("
             INSERT INTO provider_details (user_id, application_status) 
             VALUES (?, 'pending') 

@@ -5,18 +5,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $id = $_POST['id'] ?? null;
     $menu_location = $_POST['menu_location'];
     $title = $_POST['title'];
+    $icon = $_POST['icon'] ?? null;
+    $parent_id = !empty($_POST['parent_id']) ? $_POST['parent_id'] : null;
     $url = $_POST['url'];
     $visibility = $_POST['visibility'];
     $target = $_POST['target'];
     $sort_order = $_POST['sort_order'] ?? 0;
     $is_active = isset($_POST['is_active']) ? 1 : 0;
 
-    if ($id) {
-        $stmt = $pdo->prepare("UPDATE menu_items SET menu_location=?, title=?, url=?, visibility=?, target=?, sort_order=?, is_active=? WHERE id=?");
-        $stmt->execute([$menu_location, $title, $url, $visibility, $target, $sort_order, $is_active, $id]);
-    } else {
-        $stmt = $pdo->prepare("INSERT INTO menu_items (menu_location, title, url, visibility, target, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$menu_location, $title, $url, $visibility, $target, $sort_order, $is_active]);
+    try {
+        if ($id) {
+            $stmt = $pdo->prepare("UPDATE menu_items SET menu_location=?, title=?, icon=?, parent_id=?, url=?, visibility=?, target=?, sort_order=?, is_active=? WHERE id=?");
+            $stmt->execute([$menu_location, $title, $icon, $parent_id, $url, $visibility, $target, $sort_order, $is_active, $id]);
+        } else {
+            $stmt = $pdo->prepare("INSERT INTO menu_items (menu_location, title, icon, parent_id, url, visibility, target, sort_order, is_active) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([$menu_location, $title, $icon, $parent_id, $url, $visibility, $target, $sort_order, $is_active]);
+        }
+    } catch (PDOException $e) {
+        die("Veritabanı hatası: " . $e->getMessage() . " <br>Lütfen <a href='repair-db.php'>Veritabanı Onar</a> sayfasını ziyaret edin.");
     }
     header("Location: menus.php");
     exit;
@@ -25,12 +31,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once 'includes/header.php';
 
 $id = $_GET['id'] ?? null;
-$item = ['menu_location' => 'header', 'title' => '', 'url' => '', 'visibility' => 'all', 'target' => '_self', 'sort_order' => 0, 'is_active' => 1];
+$item = ['menu_location' => 'header', 'title' => '', 'icon' => '', 'parent_id' => null, 'url' => '', 'visibility' => 'all', 'target' => '_self', 'sort_order' => 0, 'is_active' => 1];
 
 if ($id) {
     $stmt = $pdo->prepare("SELECT * FROM menu_items WHERE id = ?");
     $stmt->execute([$id]);
-    $item = $stmt->fetch();
+    $fetched = $stmt->fetch();
+    if ($fetched) {
+        $item = $fetched;
+    }
+}
+
+// Mega Menü Üst Kategorilerini Çek (Kendisi hariç)
+$parents = [];
+try {
+    $parentsSql = "SELECT * FROM menu_items WHERE menu_location = 'mega_menu' AND parent_id IS NULL";
+    if ($id) $parentsSql .= " AND id != $id";
+    $parents = $pdo->query($parentsSql . " ORDER BY title ASC")->fetchAll();
+} catch (PDOException $e) {
+    // Veritabanı sütunları eksik olabilir, yoksay
 }
 ?>
 
@@ -52,6 +71,7 @@ if ($id) {
                     <select name="menu_location" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
                         <option value="header" <?= $item['menu_location'] == 'header' ? 'selected' : '' ?>>Header (Üst Menü)</option>
                         <option value="footer" <?= $item['menu_location'] == 'footer' ? 'selected' : '' ?>>Footer (Alt Menü)</option>
+                        <option value="mega_menu" <?= $item['menu_location'] == 'mega_menu' ? 'selected' : '' ?>>Mega Menü</option>
                     </select>
                 </div>
                 <div>
@@ -60,9 +80,25 @@ if ($id) {
                 </div>
             </div>
 
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Başlık</label>
+                    <input type="text" name="title" value="<?= htmlspecialchars($item['title']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Üst Menü (Sadece Mega Menü)</label>
+                    <select name="parent_id" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="">Yok (Ana Kategori)</option>
+                        <?php foreach ($parents as $parent): ?>
+                            <option value="<?= $parent['id'] ?>" <?= $item['parent_id'] == $parent['id'] ? 'selected' : '' ?>><?= htmlspecialchars($parent['title']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+            </div>
+
             <div>
-                <label class="block text-sm font-bold text-slate-700 mb-2">Başlık</label>
-                <input type="text" name="title" value="<?= htmlspecialchars($item['title']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                <label class="block text-sm font-bold text-slate-700 mb-2">İkon (Material Symbols)</label>
+                <input type="text" name="icon" value="<?= htmlspecialchars($item['icon'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Örn: home, cleaning_services">
             </div>
 
             <div>
