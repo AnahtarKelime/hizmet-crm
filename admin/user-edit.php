@@ -345,16 +345,18 @@ $userDemands = $stmtDemands->fetchAll();
                             </td>
                             <td class="px-6 py-4">
                                 <?php
-                                $statusClass = match($offer['status']) {
+                                $statusClasses = [
                                     'accepted' => 'bg-green-100 text-green-700',
                                     'rejected' => 'bg-red-100 text-red-700',
-                                    default => 'bg-yellow-100 text-yellow-700'
-                                };
-                                $statusLabel = match($offer['status']) {
+                                    'pending' => 'bg-yellow-100 text-yellow-700'
+                                ];
+                                $statusLabels = [
                                     'accepted' => 'Kabul Edildi',
                                     'rejected' => 'Reddedildi',
-                                    default => 'Beklemede'
-                                };
+                                    'pending' => 'Beklemede'
+                                ];
+                                $statusClass = $statusClasses[$offer['status']] ?? 'bg-yellow-100 text-yellow-700';
+                                $statusLabel = $statusLabels[$offer['status']] ?? 'Beklemede';
                                 ?>
                                 <span class="px-2 py-1 rounded text-xs font-bold <?= $statusClass ?>"><?= $statusLabel ?></span>
                             </td>
@@ -415,19 +417,20 @@ $userDemands = $stmtDemands->fetchAll();
                             </td>
                             <td class="px-6 py-4">
                                 <?php
-                                $statusClass = match($demand['status']) {
+                                $statusClasses = [
                                     'approved' => 'bg-green-100 text-green-700',
                                     'completed' => 'bg-blue-100 text-blue-700',
                                     'cancelled' => 'bg-red-100 text-red-700',
-                                    default => 'bg-yellow-100 text-yellow-700'
-                                };
-                                $statusLabel = match($demand['status']) {
+                                    'pending' => 'bg-yellow-100 text-yellow-700'
+                                ];
+                                $statusLabels = [
                                     'approved' => 'Onaylandı',
                                     'completed' => 'Tamamlandı',
                                     'cancelled' => 'İptal',
-                                    'pending' => 'Beklemede',
-                                    default => $demand['status']
-                                };
+                                    'pending' => 'Beklemede'
+                                ];
+                                $statusClass = $statusClasses[$demand['status']] ?? 'bg-yellow-100 text-yellow-700';
+                                $statusLabel = $statusLabels[$demand['status']] ?? $demand['status'];
                                 ?>
                                 <span class="px-2 py-1 rounded text-xs font-bold <?= $statusClass ?>"><?= $statusLabel ?></span>
                             </td>

@@ -2,180 +2,174 @@
 require_once '../config/db.php';
 require_once 'includes/header.php';
 
-// Kategori Seçimi
-$selectedCategoryId = $_GET['category_id'] ?? null;
+$categoryId = $_GET['category_id'] ?? null;
 
-// Kategorileri Çek
-$categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
-
-// Yeni Soru Ekleme
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['add_question'])) {
-    $categoryId = $_POST['category_id'];
-    $questionText = $_POST['question_text'];
-    $inputType = $_POST['input_type'];
-    $options = $_POST['options'] ? json_encode(array_map('trim', explode(',', $_POST['options'])), JSON_UNESCAPED_UNICODE) : null;
-    $isRequired = isset($_POST['is_required']) ? 1 : 0;
-    $sortOrder = $_POST['sort_order'] ?? 0;
-
-    $stmt = $pdo->prepare("INSERT INTO category_questions (category_id, question_text, input_type, options, is_required, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
-    $stmt->execute([$categoryId, $questionText, $inputType, $options, $isRequired, $sortOrder]);
-    
-    header("Location: questions.php?category_id=" . $categoryId);
-    exit;
-}
-
-// Soruyu Silme
-if (isset($_GET['delete'])) {
-    $stmt = $pdo->prepare("DELETE FROM category_questions WHERE id = ?");
-    $stmt->execute([$_GET['delete']]);
-    header("Location: questions.php?category_id=" . $selectedCategoryId);
-    exit;
-}
-
-// Seçilen Kategoriye Ait Soruları Çek
-$questions = [];
-if ($selectedCategoryId) {
-    $stmt = $pdo->prepare("SELECT * FROM category_questions WHERE category_id = ? ORDER BY sort_order ASC");
-    $stmt->execute([$selectedCategoryId]);
-    $questions = $stmt->fetchAll();
-}
-?>
-
-<div class="flex justify-between items-center mb-6">
-    <div>
-        <h2 class="text-2xl font-bold text-slate-800">Dinamik Sorular</h2>
-        <p class="text-slate-500 text-sm">Hizmet talebi oluşturulurken sorulacak soruları yönetin.</p>
-    </div>
-</div>
-
-<div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
-    <!-- Sol Kolon: Kategori Seçimi ve Soru Ekleme Formu -->
-    <div class="space-y-6">
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <label class="block text-sm font-bold text-slate-700 mb-2">Kategori Seçin</label>
-            <select onchange="window.location.href='questions.php?category_id='+this.value" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
-                <option value="">Seçiniz...</option>
-                <?php foreach($categories as $cat): ?>
-                    <option value="<?= $cat['id'] ?>" <?= $selectedCategoryId == $cat['id'] ? 'selected' : '' ?>>
-                        <?= htmlspecialchars($cat['name']) ?>
-                    </option>
-                <?php endforeach; ?>
-            </select>
+// Kategori ID yoksa kategori listesini göster
+if (!$categoryId) {
+    $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();
+    ?>
+    <div class="max-w-4xl mx-auto">
+        <div class="flex items-center gap-4 mb-6">
+            <div class="w-10 h-10 rounded-full bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                <span class="material-symbols-outlined">quiz</span>
+            </div>
+            <div>
+                <h2 class="text-2xl font-bold text-slate-800">Soru Yönetimi</h2>
+                <p class="text-slate-500 text-sm">Sorularını düzenlemek istediğiniz kategoriyi seçin.</p>
+            </div>
         </div>
 
-        <?php if ($selectedCategoryId): ?>
-        <div class="bg-white p-6 rounded-xl shadow-sm border border-slate-200">
-            <h3 class="text-lg font-bold text-slate-800 mb-4">Yeni Soru Ekle</h3>
-            <form method="POST" class="space-y-4">
-                <input type="hidden" name="add_question" value="1">
-                <input type="hidden" name="category_id" value="<?= $selectedCategoryId ?>">
-                
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Soru Metni</label>
-                    <input type="text" name="question_text" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">Giriş Tipi</label>
-                    <select name="input_type" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                        <option value="text">Kısa Metin (Text)</option>
-                        <option value="number">Sayı (Number)</option>
-                        <option value="textarea">Uzun Metin (Textarea)</option>
-                        <option value="select">Seçim Listesi (Select)</option>
-                        <option value="radio">Tekli Seçim (Radio)</option>
-                        <option value="checkbox">Çoklu Seçim (Checkbox)</option>
-                        <option value="date">Tarih (Date)</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-slate-700 mb-1">
-                        Seçenekler
-                        <span class="text-xs text-slate-400 font-normal ml-1">(Select, Radio, Checkbox için virgülle ayırın)</span>
-                    </label>
-                    <textarea name="options" rows="2" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm" placeholder="Örn: Evet, Hayır, Belirsiz"></textarea>
-                </div>
-
-                <div class="grid grid-cols-2 gap-4">
-                    <div>
-                        <label class="block text-sm font-medium text-slate-700 mb-1">Sıra No</label>
-                        <input type="number" name="sort_order" value="0" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
-                    </div>
-                    <div class="flex items-end pb-2">
-                        <label class="flex items-center gap-2 cursor-pointer">
-                            <input type="checkbox" name="is_required" value="1" checked class="rounded text-indigo-600 focus:ring-indigo-500">
-                            <span class="text-sm font-medium text-slate-700">Zorunlu Alan</span>
-                        </label>
-                    </div>
-                </div>
-
-                <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm">
-                    Soruyu Ekle
-                </button>
-            </form>
-        </div>
-        <?php endif; ?>
-    </div>
-
-    <!-- Sağ Kolon: Soru Listesi -->
-    <div class="lg:col-span-2">
-        <?php if ($selectedCategoryId): ?>
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
-                <div class="px-6 py-4 border-b border-slate-200 bg-slate-50 flex justify-between items-center">
-                    <h3 class="font-bold text-slate-800">Mevcut Sorular</h3>
-                    <span class="text-xs font-medium bg-indigo-100 text-indigo-700 px-2 py-1 rounded-full"><?= count($questions) ?> Soru</span>
-                </div>
-                
-                <?php if (empty($questions)): ?>
-                    <div class="p-8 text-center text-slate-500">
-                        Bu kategori için henüz soru eklenmemiş.
-                    </div>
-                <?php else: ?>
-                    <div class="divide-y divide-slate-100">
-                        <?php foreach ($questions as $q): ?>
-                            <div class="p-4 hover:bg-slate-50 transition-colors flex items-start gap-4 group">
-                                <div class="w-8 h-8 bg-slate-100 rounded-full flex items-center justify-center text-slate-500 font-bold text-xs flex-shrink-0">
-                                    <?= $q['sort_order'] ?>
+        <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+            <?php if (empty($categories)): ?>
+                <div class="p-8 text-center text-slate-500">Henüz hiç kategori eklenmemiş.</div>
+            <?php else: ?>
+                <div class="divide-y divide-slate-100">
+                    <?php foreach($categories as $cat): ?>
+                    <a href="questions.php?category_id=<?= $cat['id'] ?>" class="block p-4 hover:bg-slate-50 transition-colors group">
+                        <div class="flex justify-between items-center">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-lg bg-slate-100 flex items-center justify-center text-slate-500 group-hover:bg-indigo-50 group-hover:text-indigo-600 transition-colors">
+                                    <span class="material-symbols-outlined"><?= $cat['icon'] ?: 'category' ?></span>
                                 </div>
-                                <div class="flex-1">
-                                    <div class="flex items-center gap-2 mb-1">
-                                        <h4 class="font-bold text-slate-800"><?= htmlspecialchars($q['question_text']) ?></h4>
-                                        <?php if($q['is_required']): ?>
-                                            <span class="text-[10px] bg-red-100 text-red-600 px-1.5 py-0.5 rounded font-bold">Zorunlu</span>
-                                        <?php endif; ?>
-                                    </div>
-                                    <div class="flex items-center gap-4 text-xs text-slate-500">
-                                        <span class="flex items-center gap-1 bg-slate-100 px-2 py-0.5 rounded">
-                                            <span class="material-symbols-outlined text-[14px]">input</span>
-                                            <?= ucfirst($q['input_type']) ?>
-                                        </span>
-                                        <?php if($q['options']): ?>
-                                            <span class="flex items-center gap-1" title="<?= htmlspecialchars($q['options']) ?>">
-                                                <span class="material-symbols-outlined text-[14px]">list</span>
-                                                <?= count(json_decode($q['options'], true)) ?> Seçenek
-                                            </span>
-                                        <?php endif; ?>
-                                    </div>
-                                </div>
-                                <div class="opacity-0 group-hover:opacity-100 transition-opacity">
-                                    <a href="questions.php?category_id=<?= $selectedCategoryId ?>&delete=<?= $q['id'] ?>" onclick="return confirm('Silmek istediğinize emin misiniz?')" class="text-red-400 hover:text-red-600 p-2">
-                                        <span class="material-symbols-outlined">delete</span>
-                                    </a>
+                                <div>
+                                    <h4 class="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors"><?= htmlspecialchars($cat['name']) ?></h4>
+                                    <p class="text-xs text-slate-500"><?= $cat['is_active'] ? 'Aktif' : 'Pasif' ?></p>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-            </div>
-        <?php else: ?>
-            <div class="bg-slate-50 border-2 border-dashed border-slate-200 rounded-xl p-12 text-center">
-                <div class="inline-flex items-center justify-center w-16 h-16 bg-white rounded-full mb-4 shadow-sm">
-                    <span class="material-symbols-outlined text-3xl text-slate-400">arrow_back</span>
+                            <span class="material-symbols-outlined text-slate-300 group-hover:text-indigo-400 transition-colors">arrow_forward_ios</span>
+                        </div>
+                    </a>
+                    <?php endforeach; ?>
                 </div>
-                <h3 class="text-lg font-bold text-slate-700 mb-2">Kategori Seçimi Yapın</h3>
-                <p class="text-slate-500 max-w-sm mx-auto">Soruları listelemek ve yeni soru eklemek için lütfen sol taraftan bir kategori seçin.</p>
-            </div>
-        <?php endif; ?>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php
+    require_once 'includes/footer.php';
+    exit;
+}
+
+// Kategori Bilgisi
+$stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
+$stmt->execute([$categoryId]);
+$category = $stmt->fetch();
+
+if (!$category) {
+    echo "<div class='p-8 text-center text-red-500'>Kategori bulunamadı.</div>";
+    require_once 'includes/footer.php';
+    exit;
+}
+
+// İşlem: Soruları Güncelle
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_questions'])) {
+    try {
+        $pdo->beginTransaction();
+        
+        if (isset($_POST['questions']) && is_array($_POST['questions'])) {
+            foreach ($_POST['questions'] as $qId => $qData) {
+                $questionText = trim($qData['question_text']);
+                $optionsStr = $qData['options'] ?? '';
+                
+                // Seçenekleri işle (Satır satır)
+                $optionsJson = null;
+                if (!empty($optionsStr)) {
+                    $optionsArray = array_filter(array_map('trim', explode("\n", $optionsStr)));
+                    if (!empty($optionsArray)) {
+                        $optionsJson = json_encode(array_values($optionsArray), JSON_UNESCAPED_UNICODE);
+                    }
+                }
+
+                $stmtUpdate = $pdo->prepare("UPDATE category_questions SET question_text = ?, options = ? WHERE id = ?");
+                $stmtUpdate->execute([$questionText, $optionsJson, $qId]);
+            }
+        }
+        
+        $pdo->commit();
+        $successMsg = "Sorular başarıyla güncellendi.";
+    } catch (Exception $e) {
+        $pdo->rollBack();
+        $errorMsg = "Hata: " . $e->getMessage();
+    }
+}
+
+// Soruları Çek
+$stmt = $pdo->prepare("SELECT * FROM category_questions WHERE category_id = ? ORDER BY sort_order ASC");
+$stmt->execute([$categoryId]);
+$questions = $stmt->fetchAll();
+?>
+
+<div class="max-w-5xl mx-auto">
+    <div class="flex items-center gap-4 mb-6">
+        <a href="categories.php" class="w-10 h-10 rounded-full bg-white border border-slate-200 flex items-center justify-center text-slate-500 hover:bg-slate-50 transition-colors">
+            <span class="material-symbols-outlined">arrow_back</span>
+        </a>
+        <div>
+            <h2 class="text-2xl font-bold text-slate-800">Soru Yönetimi</h2>
+            <p class="text-slate-500 text-sm">Kategori: <?= htmlspecialchars($category['name']) ?></p>
+        </div>
+    </div>
+
+    <?php if (isset($successMsg)): ?>
+        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6"><?= $successMsg ?></div>
+    <?php endif; ?>
+    <?php if (isset($errorMsg)): ?>
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6"><?= $errorMsg ?></div>
+    <?php endif; ?>
+
+    <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+        <div class="p-6 border-b border-slate-100 bg-slate-50 flex justify-between items-center">
+            <h3 class="font-bold text-slate-800">Sorular</h3>
+            <button type="button" onclick="document.getElementById('questionsForm').submit()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg text-sm font-bold hover:bg-indigo-700 transition-colors">Değişiklikleri Kaydet</button>
+        </div>
+        
+        <form method="POST" id="questionsForm" class="p-6 space-y-6">
+            <input type="hidden" name="update_questions" value="1">
+            
+            <?php if (empty($questions)): ?>
+                <div class="text-center text-slate-500 py-8">Bu kategoriye ait soru bulunamadı.</div>
+            <?php else: ?>
+                <?php foreach ($questions as $q): ?>
+                    <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
+                        <div class="flex justify-between items-start mb-4">
+                            <div class="flex items-center gap-2">
+                                <span class="bg-slate-200 text-slate-600 text-xs font-bold px-2 py-1 rounded">Sıra: <?= $q['sort_order'] ?></span>
+                                <span class="bg-blue-100 text-blue-700 text-xs font-bold px-2 py-1 rounded uppercase"><?= $q['input_type'] ?></span>
+                                <?php if($q['is_required']): ?>
+                                    <span class="bg-red-100 text-red-700 text-xs font-bold px-2 py-1 rounded">Zorunlu</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div>
+                                <label class="block text-sm font-bold text-slate-700 mb-2">Soru Başlığı</label>
+                                <input type="text" name="questions[<?= $q['id'] ?>][question_text]" value="<?= htmlspecialchars($q['question_text']) ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm">
+                            </div>
+                            
+                            <?php if (in_array($q['input_type'], ['select', 'radio', 'checkbox'])): ?>
+                                <div>
+                                    <label class="block text-sm font-bold text-slate-700 mb-2">Seçenekler (Her satıra bir tane)</label>
+                                    <?php
+                                        $optionsText = "";
+                                        if (!empty($q['options'])) {
+                                            $opts = json_decode($q['options'], true);
+                                            if (is_array($opts)) {
+                                                $optionsText = implode("\n", $opts);
+                                            }
+                                        }
+                                    ?>
+                                    <textarea name="questions[<?= $q['id'] ?>][options]" rows="4" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-sm font-mono"><?= htmlspecialchars($optionsText) ?></textarea>
+                                </div>
+                            <?php else: ?>
+                                <div class="flex items-center justify-center text-slate-400 text-sm italic bg-white rounded-lg border border-dashed border-slate-300 h-full">
+                                    Bu soru tipi için seçenek gerekmez.
+                                </div>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            <?php endif; ?>
+        </form>
     </div>
 </div>
 

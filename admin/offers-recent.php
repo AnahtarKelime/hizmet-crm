@@ -8,8 +8,13 @@ $limit = 10;
 $offset = ($page - 1) * $limit;
 
 // Toplam Teklif Sayısı
-$totalStmt = $pdo->query("SELECT COUNT(*) FROM offers");
-$totalOffers = $totalStmt->fetchColumn();
+$totalOffers = 0;
+try {
+    $totalStmt = $pdo->query("SELECT COUNT(*) FROM offers");
+    $totalOffers = $totalStmt->fetchColumn();
+} catch (PDOException $e) {
+    // Hata durumunda 0 varsay
+}
 $totalPages = ceil($totalOffers / $limit);
 
 // Tüm Teklifleri Çek (Hizmet Veren, Müşteri ve Talep Bilgileriyle)
@@ -96,16 +101,18 @@ try {
                         </td>
                         <td class="px-6 py-4">
                             <?php
-                            $statusClass = match($offer['status']) {
+                            $statusClasses = [
                                 'accepted' => 'bg-green-100 text-green-700',
                                 'rejected' => 'bg-red-100 text-red-700',
-                                default => 'bg-yellow-100 text-yellow-700'
-                            };
-                            $statusLabel = match($offer['status']) {
+                                'pending' => 'bg-yellow-100 text-yellow-700'
+                            ];
+                            $statusLabels = [
                                 'accepted' => 'Kabul Edildi',
                                 'rejected' => 'Reddedildi',
-                                default => 'Beklemede'
-                            };
+                                'pending' => 'Beklemede'
+                            ];
+                            $statusClass = $statusClasses[$offer['status']] ?? 'bg-yellow-100 text-yellow-700';
+                            $statusLabel = $statusLabels[$offer['status']] ?? 'Beklemede';
                             ?>
                             <span class="px-2 py-1 rounded text-xs font-bold <?= $statusClass ?>"><?= $statusLabel ?></span>
                         </td>

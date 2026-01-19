@@ -98,6 +98,9 @@ $categories = $stmt->fetchAll();
                     </span>
                 </td>
                 <td class="px-6 py-4 text-right space-x-2">
+                    <a href="questions.php?category_id=<?= $cat['id'] ?>" class="text-amber-600 hover:text-amber-800 font-medium inline-flex items-center gap-1" title="Soruları Yönet">
+                        <span class="material-symbols-outlined text-sm">quiz</span>
+                    </a>
                     <a href="category-form.php?id=<?= $cat['id'] ?>" class="text-indigo-600 hover:text-indigo-800 font-medium">Düzenle</a>
                     <a href="categories.php?delete=<?= $cat['id'] ?>" onclick="return confirm('Bu kategoriyi silmek istediğinize emin misiniz?')" class="text-red-500 hover:text-red-700 font-medium">Sil</a>
                 </td>
