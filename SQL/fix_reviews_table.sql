@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 CREATE TABLE IF NOT EXISTS `reviews` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `offer_id` int(11) unsigned NOT NULL,

@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 -- Kullanıcılar tablosuna Google ID ve avatar URL'si ekle
 ALTER TABLE `users`
 ADD COLUMN `google_id` VARCHAR(255) DEFAULT NULL,

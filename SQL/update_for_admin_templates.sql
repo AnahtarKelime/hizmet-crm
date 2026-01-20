@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 CREATE TABLE IF NOT EXISTS `admin_message_templates` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `title` varchar(100) NOT NULL,

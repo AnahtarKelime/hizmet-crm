@@ -1,7 +1,5 @@
 -- Hizmet Veren Mesaj Şablonları
 
-USE `hizmet_crm`;
-
 CREATE TABLE `provider_message_templates` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `user_id` INT(11) UNSIGNED NOT NULL,

@@ -2,8 +2,7 @@ SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 
 -- 1. Veritabanını Oluştur ve Seç
-CREATE DATABASE IF NOT EXISTS `hizmet_crm` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE `hizmet_crm`;
+-- CREATE DATABASE IF NOT EXISTS `hizmet_crm` DEFAULT CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
 -- 2. Eski Tabloları Temizle (Sıralama Önemli)
 DROP TABLE IF EXISTS `transactions`;

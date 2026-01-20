@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 DROP TABLE IF EXISTS `menu_items`;
 
 CREATE TABLE `menu_items` (

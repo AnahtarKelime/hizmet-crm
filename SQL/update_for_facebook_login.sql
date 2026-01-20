@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 -- Kullanıcılar tablosuna Facebook ID ekle
 ALTER TABLE `users`
 ADD COLUMN `facebook_id` VARCHAR(255) DEFAULT NULL,

@@ -1,5 +1,4 @@
 SET NAMES utf8mb4;
-USE `hizmet_crm`;
 
 -- 1. Kullanıcıları Ekle (Şifre: 'password')
 -- Roller: 1:Admin, 2:Müşteri, 3:Hizmet Veren (Free), 4:Hizmet Veren (Premium)

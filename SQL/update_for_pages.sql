@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 CREATE TABLE IF NOT EXISTS `pages` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `slug` VARCHAR(100) NOT NULL,
@@ -90,5 +88,26 @@ INSERT INTO `pages` (`slug`, `title`, `content`) VALUES
             <p>Kimlik, iletişim ve işlem güvenliği bilgileri toplanmaktadır.</p>
             <!-- İçeriğin devamı admin panelinden düzenlenebilir -->
         </div>
+    </div>'),
+('cerez-politikasi', 'Çerez Politikası', '<div class="max-w-4xl mx-auto px-4 py-16">
+        <div class="prose prose-slate dark:prose-invert max-w-none prose-headings:font-bold prose-a:text-primary hover:prose-a:text-accent">
+            <h3>1. Çerez Nedir?</h3>
+            <p>Çerezler, ziyaret ettiğiniz web siteleri tarafından tarayıcınıza veya cihazınıza depolanan küçük metin dosyalarıdır. Web sitemizin düzgün çalışmasını sağlamak, kullanıcı deneyimini iyileştirmek ve sitemizin nasıl kullanıldığını analiz etmek için çerezleri kullanıyoruz.</p>
+            
+            <h3>2. Kullandığımız Çerez Türleri</h3>
+            <ul>
+                <li><strong>Zorunlu Çerezler:</strong> Bu çerezler, web sitemizin temel işlevlerinin çalışması için gereklidir. Oturum açma, form gönderme gibi işlemler bu çerezler olmadan gerçekleştirilemez.</li>
+                <li><strong>Performans ve Analiz Çerezleri:</strong> Bu çerezler, ziyaretçilerin sitemizi nasıl kullandığı hakkında (örneğin en çok ziyaret edilen sayfalar) anonim bilgiler toplar. Bu verileri, sitemizi ve hizmetlerimizi geliştirmek için kullanırız.</li>
+                <li><strong>İşlevsellik Çerezleri:</strong> Bu çerezler, sitemizi ziyaret ettiğinizde yaptığınız tercihleri (kullanıcı adı, dil veya bölge gibi) hatırlar ve size daha kişiselleştirilmiş bir deneyim sunar.</li>
+                <li><strong>Hedefleme ve Reklam Çerezleri:</strong> Bu çerezler, ilgi alanlarınıza daha uygun reklamlar sunmak için kullanılır. Ayrıca bir reklamı görme sayınızı sınırlamak ve reklam kampanyalarının etkinliğini ölçmek için de kullanılırlar.</li>
+            </ul>
+
+            <h3>3. Çerezleri Nasıl Kontrol Edebilirsiniz?</h3>
+            <p>Tarayıcı ayarlarınızı değiştirerek çerezleri kabul etmeyi veya reddetmeyi seçebilirsiniz. Çoğu tarayıcı çerezleri otomatik olarak kabul eder, ancak isterseniz bu ayarı değiştirebilirsiniz. Çerezleri devre dışı bırakırsanız, web sitemizin bazı özelliklerinin düzgün çalışmayabileceğini lütfen unutmayın.</p>
+            <p>Tarayıcınızdaki çerezleri nasıl yöneteceğiniz hakkında daha fazla bilgi için tarayıcınızın yardım menüsüne başvurabilirsiniz.</p>
+
+            <h3>4. Politika Değişiklikleri</h3>
+            <p>Bu çerez politikasını zaman zaman güncelleyebiliriz. Politikada yapılan önemli değişiklikler sitemizde duyurulacaktır. Politikayı düzenli olarak gözden geçirmenizi öneririz.</p>
+        </div>
     </div>')
-ON DUPLICATE KEY UPDATE title=VALUES(title);
+ON DUPLICATE KEY UPDATE title=VALUES(title), content=VALUES(content);

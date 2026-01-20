@@ -79,11 +79,65 @@ if (isset($pdo)) {
             <div class="flex gap-10 text-slate-400 text-xs font-bold tracking-widest uppercase">
                 <a class="hover:text-white" href="#">Yardım Merkezi</a>
                 <a class="hover:text-white" href="#">Blog</a>
-                <a class="hover:text-white" href="#">Çerezler</a>
+                <a class="hover:text-white" href="cerez-politikasi.php">Çerezler</a>
             </div>
         </div>
     </div>
 </footer>
+
+<!-- Cookie Policy Banner -->
+<div id="cookie-banner" class="fixed bottom-0 left-0 w-full bg-white/95 dark:bg-slate-900/95 backdrop-blur-sm border-t border-slate-200 dark:border-slate-800 shadow-[0_-4px_20px_-5px_rgba(0,0,0,0.1)] z-[100] transform translate-y-full transition-transform duration-500 ease-out" style="display: none;">
+    <div class="max-w-7xl mx-auto px-4 py-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div class="flex items-center gap-4">
+            <div class="hidden sm:flex bg-primary/10 dark:bg-accent/10 p-2.5 rounded-full shrink-0">
+                <span class="material-symbols-outlined text-primary dark:text-accent">cookie</span>
+            </div>
+            <p class="text-sm text-slate-600 dark:text-slate-300 font-medium leading-relaxed text-center sm:text-left">
+                Size daha iyi bir deneyim sunmak için çerezleri kullanıyoruz. Sitemizi kullanmaya devam ederek <a href="cerez-politikasi.php" class="text-primary dark:text-accent font-bold hover:underline transition-colors">Çerez Politikamızı</a> kabul etmiş olursunuz.
+            </p>
+        </div>
+        <div class="flex items-center gap-3 shrink-0 w-full sm:w-auto justify-center">
+            <button id="cookie-accept" class="bg-primary hover:bg-primary/90 text-white px-6 py-2.5 rounded-xl text-sm font-bold transition-all shadow-lg shadow-primary/20 active:scale-95">
+                Kabul Et
+            </button>
+            <button id="cookie-close" class="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const banner = document.getElementById('cookie-banner');
+        const acceptBtn = document.getElementById('cookie-accept');
+        const closeBtn = document.getElementById('cookie-close');
+
+        if (!document.cookie.split('; ').find(row => row.startsWith('cookie_consent='))) {
+            banner.style.display = 'block';
+            // Animasyonun tetiklenmesi için kısa bir gecikme
+            setTimeout(() => {
+                banner.classList.remove('translate-y-full');
+            }, 50);
+        }
+
+        function closeBanner() {
+            banner.classList.add('translate-y-full');
+            setTimeout(() => {
+                banner.style.display = 'none';
+            }, 500);
+        }
+
+        acceptBtn.addEventListener('click', () => {
+            document.cookie = "cookie_consent=accepted; path=/; max-age=" + (60*60*24*365); 
+            closeBanner();
+        });
+
+        closeBtn.addEventListener('click', () => {
+             closeBanner();
+        });
+    });
+</script>
 
 </body>
 </html>

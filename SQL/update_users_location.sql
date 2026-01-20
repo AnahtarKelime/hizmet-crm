@@ -1,4 +1,2 @@
-USE `hizmet_crm`;
-
 ALTER TABLE `users` ADD COLUMN `city` VARCHAR(100) DEFAULT NULL AFTER `phone`;
 ALTER TABLE `users` ADD COLUMN `district` VARCHAR(100) DEFAULT NULL AFTER `city`;

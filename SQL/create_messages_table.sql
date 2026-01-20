@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 CREATE TABLE IF NOT EXISTS `messages` (
   `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
   `offer_id` INT(11) UNSIGNED NOT NULL,

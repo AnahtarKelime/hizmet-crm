@@ -1,5 +1,3 @@
-USE `hizmet_crm`;
-
 CREATE TABLE IF NOT EXISTS `contact_messages` (
   `id` int(11) unsigned NOT NULL AUTO_INCREMENT,
   `name` varchar(100) NOT NULL,
