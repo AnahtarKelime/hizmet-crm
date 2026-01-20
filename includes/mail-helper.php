@@ -83,6 +83,8 @@ function sendEmail($to, $templateKey, $placeholders = [], &$errorInfo = null) {
     $emailHeaderBg = $settings['email_header_bg_color'] ?? '#1a2a6c';
     $emailHeaderText = $settings['email_header_text_color'] ?? '#ffffff';
     $emailLogo = $settings['email_logo'] ?? '';
+    $emailPrimaryColor = $settings['theme_color_primary'] ?? '#1a2a6c';
+    $emailAccentColor = $settings['theme_color_accent'] ?? '#fbbd23';
 
     // Şablonu Çek
     $stmt = $pdo->prepare("SELECT subject, body FROM email_templates WHERE template_key = ?");
@@ -123,7 +125,7 @@ function sendEmail($to, $templateKey, $placeholders = [], &$errorInfo = null) {
                             <ul style="padding-left: 20px; color: #555;">';
                 foreach ($popCats as $cat) {
                     $catLink = getBaseUrl() . '/teklif-al.php?service=' . $cat['slug'];
-                    $body .= '<li style="margin-bottom: 5px;"><a href="' . $catLink . '" style="color: #1a2a6c; text-decoration: none;">' . htmlspecialchars($cat['name']) . '</a></li>';
+                    $body .= '<li style="margin-bottom: 5px;"><a href="' . $catLink . '" style="color: ' . htmlspecialchars($emailPrimaryColor) . '; text-decoration: none;">' . htmlspecialchars($cat['name']) . '</a></li>';
                 }
                 $body .= '</ul></div>';
             }
@@ -151,12 +153,12 @@ function sendEmail($to, $templateKey, $placeholders = [], &$errorInfo = null) {
         <style>
             body { font-family: Arial, sans-serif; background-color: #f6f6f8; margin: 0; padding: 0; }
             .container { max-width: 600px; margin: 20px auto; background-color: #ffffff; border-radius: 8px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-            .header { background-color: ' . $emailHeaderBg . '; padding: 20px; text-align: center; }
-            .header h1 { color: ' . $emailHeaderText . '; margin: 0; font-size: 24px; font-weight: bold; }
+            .header { background-color: ' . htmlspecialchars($emailHeaderBg) . '; padding: 20px; text-align: center; }
+            .header h1 { color: ' . htmlspecialchars($emailHeaderText) . '; margin: 0; font-size: 24px; font-weight: bold; }
             .content { padding: 30px; color: #333333; line-height: 1.6; }
-            .button { display: inline-block; background-color: #fbbd23; color: #1a2a6c; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px; }
+            .button { display: inline-block; background-color: ' . htmlspecialchars($emailAccentColor) . '; color: ' . htmlspecialchars($emailPrimaryColor) . '; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold; margin-top: 20px; }
             .footer { background-color: #f9fafb; padding: 20px; text-align: center; font-size: 12px; color: #888888; border-top: 1px solid #eeeeee; }
-            a { color: #1a2a6c; }
+            a { color: ' . htmlspecialchars($emailPrimaryColor) . '; }
         </style>
     </head>
     <body>
