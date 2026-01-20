@@ -61,8 +61,17 @@ if ($isProvider && !$isOwner && $demand) {
     $stmt->execute([$userId]);
     $providerDetails = $stmt->fetch();
 
-    if ($providerDetails && $providerDetails['subscription_ends_at'] && new DateTime($providerDetails['subscription_ends_at']) > new DateTime()) {
-        if ($providerDetails['remaining_offer_credit'] > 0 || $providerDetails['remaining_offer_credit'] == -1) {
+    if ($providerDetails) {
+        $isSubscriptionActive = false;
+        if (!empty($providerDetails['subscription_ends_at'])) {
+            try {
+                if (new DateTime($providerDetails['subscription_ends_at']) > new DateTime()) {
+                    $isSubscriptionActive = true;
+                }
+            } catch (Exception $e) {}
+        }
+
+        if ($isSubscriptionActive && ($providerDetails['remaining_offer_credit'] > 0 || $providerDetails['remaining_offer_credit'] == -1)) {
             $hasCredit = true;
         }
     }
@@ -254,7 +263,10 @@ $offers = $stmt->fetchAll();
                                 <span><?= htmlspecialchars($demand['address_text']) ?></span>
                             </div>
                         <?php endif; ?>
-                        <script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($siteSettings['google_maps_api_key'] ?? '') ?>&callback=initMap" async defer></script>
+                        <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $demand['latitude'] ?>,<?= $demand['longitude'] ?>" target="_blank" class="mt-3 w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 text-sm shadow-sm">
+                            <span class="material-symbols-outlined text-lg">directions</span>
+                            Yol Tarifi Al
+                        </a>
                         <script>
                             function initMap() {
                                 // Sitenizin tasarımına uygun özel harita stili (Sade/Gri Tonlar)
@@ -294,6 +306,18 @@ $offers = $stmt->fetchAll();
                                 });
                                 <?php endif; ?>
                             }
+
+                            // Google Maps API zaten yüklendiyse direkt başlat, yoksa callback bekle
+                            if (typeof google !== 'undefined' && google.maps) {
+                                initMap();
+                            } else {
+                                // Header'daki initLocationServices fonksiyonunu genişlet
+                                const originalInit = window.initLocationServices;
+                                window.initLocationServices = function() {
+                                    if (originalInit) originalInit();
+                                    initMap();
+                                };
+                            }
                         </script>
                     </div>
                 <?php endif; ?>
@@ -319,6 +343,13 @@ $offers = $stmt->fetchAll();
                         Gelen Teklifler (<?= count($offers) ?>)
                     </h3>
                     
+                    <?php if ($isProvider): ?>
+                        <div class="mb-4 p-4 bg-blue-50 text-blue-700 rounded-xl border border-blue-100 text-sm flex items-start gap-2">
+                            <span class="material-symbols-outlined text-lg mt-0.5">info</span>
+                            <span><strong>Bilgi:</strong> Bu talep size ait olduğu için "Talep Sahibi" modunda görüntüleniyor. Kendi talebinize teklif veremezsiniz.</span>
+                        </div>
+                    <?php endif; ?>
+
                     <?php if (empty($offers)): ?>
                         <div class="text-center py-8 text-slate-500 bg-slate-50 rounded-xl border border-dashed border-slate-200">
                             Henüz bu talep için teklif gelmedi. <br>
@@ -407,7 +438,11 @@ $offers = $stmt->fetchAll();
                         <span class="material-symbols-outlined text-primary">edit_note</span>
                         Teklif Ver
                     </h3>
-                    <?php if ($hasOffered): ?>
+                    <?php if ($demand['status'] !== 'approved'): ?>
+                        <div class="text-center py-8 text-yellow-700 bg-yellow-50 rounded-xl border border-dashed border-yellow-200">
+                            Bu talep henüz onaylanmadığı veya kapandığı için teklif verilemez.
+                        </div>
+                    <?php elseif ($hasOffered): ?>
                         <div class="text-center py-8 text-green-700 bg-green-50 rounded-xl border border-dashed border-green-200">
                             Bu talebe zaten teklif verdiniz.
                         </div>

@@ -44,6 +44,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        
+        // E-posta Logo Yükleme İşlemi
+        if (isset($_FILES['email_logo_file']) && $_FILES['email_logo_file']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = '../uploads/';
+            if (!is_dir($uploadDir)) {
+                mkdir($uploadDir, 0755, true);
+            }
+
+            $fileTmpPath = $_FILES['email_logo_file']['tmp_name'];
+            $fileName = $_FILES['email_logo_file']['name'];
+            $fileNameCmps = explode(".", $fileName);
+            $fileExtension = strtolower(end($fileNameCmps));
+
+            $allowedfileExtensions = array('jpg', 'gif', 'png', 'jpeg', 'svg', 'webp');
+            if (in_array($fileExtension, $allowedfileExtensions)) {
+                $newFileName = 'email_logo_' . uniqid() . '.' . $fileExtension;
+                $dest_path = $uploadDir . $newFileName;
+
+                if(move_uploaded_file($fileTmpPath, $dest_path)) {
+                    $logoPath = 'uploads/' . $newFileName;
+                    $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('email_logo', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                    $stmt->execute([$logoPath, $logoPath]);
+                }
+            }
+        }
 
         $pdo->commit();
         $successMsg = "Ayarlar başarıyla güncellendi.";
@@ -117,6 +142,78 @@ while ($row = $stmt->fetch()) {
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">İletişim Telefon</label>
                     <input type="text" name="settings[contact_phone]" value="<?= htmlspecialchars($settings['contact_phone'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- SMTP Ayarları -->
+        <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">SMTP Ayarları (E-posta Gönderimi)</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">SMTP Sunucusu (Host)</label>
+                    <input type="text" name="settings[smtp_host]" value="<?= htmlspecialchars($settings['smtp_host'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="mail.siteadi.com">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">SMTP Port</label>
+                    <input type="text" name="settings[smtp_port]" value="<?= htmlspecialchars($settings['smtp_port'] ?? '587') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="587">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">SMTP Kullanıcı Adı</label>
+                    <input type="text" name="settings[smtp_username]" value="<?= htmlspecialchars($settings['smtp_username'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">SMTP Şifre</label>
+                    <input type="password" name="settings[smtp_password]" value="<?= htmlspecialchars($settings['smtp_password'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Güvenlik Protokolü</label>
+                    <select name="settings[smtp_secure]" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                        <option value="tls" <?= ($settings['smtp_secure'] ?? '') == 'tls' ? 'selected' : '' ?>>TLS</option>
+                        <option value="ssl" <?= ($settings['smtp_secure'] ?? '') == 'ssl' ? 'selected' : '' ?>>SSL</option>
+                        <option value="" <?= ($settings['smtp_secure'] ?? '') == '' ? 'selected' : '' ?>>Yok</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Gönderen Adı</label>
+                    <input type="text" name="settings[smtp_from_name]" value="<?= htmlspecialchars($settings['smtp_from_name'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Gönderen E-posta</label>
+                    <input type="email" name="settings[smtp_from_email]" value="<?= htmlspecialchars($settings['smtp_from_email'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                </div>
+            </div>
+        </div>
+
+        <!-- E-posta Görünüm Ayarları -->
+        <div>
+            <h3 class="text-lg font-bold text-slate-800 mb-4 border-b pb-2">E-posta Görünüm Ayarları</h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Header Arkaplan Rengi</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" value="<?= htmlspecialchars($settings['email_header_bg_color'] ?? '#1a2a6c') ?>" class="h-10 w-14 rounded border border-slate-300 cursor-pointer p-1" oninput="this.nextElementSibling.value = this.value">
+                        <input type="text" name="settings[email_header_bg_color]" value="<?= htmlspecialchars($settings['email_header_bg_color'] ?? '#1a2a6c') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Header Metin Rengi</label>
+                    <div class="flex items-center gap-2">
+                        <input type="color" value="<?= htmlspecialchars($settings['email_header_text_color'] ?? '#ffffff') ?>" class="h-10 w-14 rounded border border-slate-300 cursor-pointer p-1" oninput="this.nextElementSibling.value = this.value">
+                        <input type="text" name="settings[email_header_text_color]" value="<?= htmlspecialchars($settings['email_header_text_color'] ?? '#ffffff') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 uppercase">
+                    </div>
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-bold text-slate-700 mb-2">E-posta Logosu</label>
+                    <div class="flex items-center gap-4">
+                        <?php if (!empty($settings['email_logo'])): ?>
+                            <div class="p-2 border border-slate-200 rounded-lg bg-slate-50">
+                                <img src="../<?= htmlspecialchars($settings['email_logo']) ?>" alt="Email Logo" class="h-12 object-contain">
+                            </div>
+                        <?php endif; ?>
+                        <input type="file" name="email_logo_file" accept="image/*" class="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100">
+                    </div>
+                    <p class="text-xs text-slate-500 mt-1">E-postalarda kullanılacak logo. Boş bırakılırsa metin başlık kullanılır.</p>
                 </div>
             </div>
         </div>

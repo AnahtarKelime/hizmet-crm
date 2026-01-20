@@ -69,6 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$locationId) {
             $stmt = $pdo->query("SELECT id FROM locations LIMIT 1");
             $locationId = $stmt->fetchColumn();
+
+            if (!$locationId) {
+                // Veritabanında hiç lokasyon yoksa varsayılan oluştur
+                $pdo->exec("INSERT IGNORE INTO locations (city, district, neighborhood, slug) VALUES ('Genel', 'Merkez', 'Merkez', 'genel-merkez')");
+                $locationId = $pdo->lastInsertId() ?: $pdo->query("SELECT id FROM locations LIMIT 1")->fetchColumn();
+            }
+
             $locationTitlePart = "Genel";
         }
 
@@ -90,7 +97,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // 3. Talebi (Lead) demands tablosuna kaydet
         $stmt = $pdo->prepare("
             INSERT INTO demands (user_id, category_id, location_id, title, address_text, latitude, longitude, status, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, 'pending', NOW())
+            VALUES (?, ?, ?, ?, ?, ?, ?, 'approved', NOW())
         ");
         $stmt->execute([$userId, $categoryId, $locationId, $title, $gAddress, $gLat, $gLng]);
         $demandId = $pdo->lastInsertId();
@@ -117,6 +124,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // İşlemi onayla
         $pdo->commit();
+
+        // --- KULLANICIYA BİLDİRİM (Talep Onaylandı) ---
+        $stmtUser = $pdo->prepare("SELECT email, first_name, last_name FROM users WHERE id = ?");
+        $stmtUser->execute([$userId]);
+        $currentUser = $stmtUser->fetch();
+
+        if ($currentUser) {
+            sendEmail($currentUser['email'], 'demand_created', [
+                'name' => $currentUser['first_name'] . ' ' . $currentUser['last_name'],
+                'demand_title' => $title,
+                'link' => getBaseUrl() . '/demand-details.php?id=' . $demandId
+            ]);
+        }
 
         // --- HİZMET VERENLERE BİLDİRİM (New Lead) ---
         // İlgili kategoride ve şehirde hizmet verenleri bul

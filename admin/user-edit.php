@@ -126,7 +126,7 @@ if (!$user) {
 
 // Şehirleri Çek
 $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
-$districtsData = $pdo->query("SELECT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
+$districtsData = $pdo->query("SELECT DISTINCT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
 
 // Kategorileri Çek
 $categories = $pdo->query("SELECT * FROM categories ORDER BY name ASC")->fetchAll();

@@ -51,7 +51,7 @@ if ($status === 'pending') {
 // Verileri Çek
 $categories = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC")->fetchAll();
 $cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
-$districts = $pdo->query("SELECT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
+$districts = $pdo->query("SELECT DISTINCT city, district FROM locations ORDER BY district ASC")->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_COLUMN);
 ?>
 
 <main class="max-w-[1200px] mx-auto w-full px-4 md:px-10 py-8">

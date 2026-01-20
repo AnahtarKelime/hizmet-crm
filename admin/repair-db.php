@@ -129,6 +129,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
         if ($result) $logs[] = $result;
     }
 
+    // 3. Varsayılan Email Şablonlarını Kontrol Et ve Ekle
+    $defaultTemplates = [
+        [
+            'key' => 'demand_created',
+            'name' => 'Talep Oluşturuldu (Kullanıcı)',
+            'subject' => 'Talebiniz Alındı ve Onaylandı',
+            'body' => '<p>Merhaba <strong>{name}</strong>,</p><p>"{demand_title}" başlıklı hizmet talebiniz başarıyla oluşturuldu ve sistem tarafından otomatik olarak onaylandı.</p><p>İlgili hizmet verenlere bildirim gönderildi. Teklifler gelmeye başladığında sizi bilgilendireceğiz.</p><p><a href="{link}" style="background-color: #1a2a6c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Talebini Görüntüle</a></p>',
+            'variables' => 'name, demand_title, link'
+        ]
+    ];
+
+    $stmtTpl = $pdo->prepare("INSERT IGNORE INTO email_templates (template_key, name, subject, body, variables) VALUES (?, ?, ?, ?, ?)");
+    foreach ($defaultTemplates as $tpl) {
+        $stmtTpl->execute([$tpl['key'], $tpl['name'], $tpl['subject'], $tpl['body'], $tpl['variables']]);
+        if ($stmtTpl->rowCount() > 0) {
+             $logs[] = "<div class='flex items-center gap-2 text-green-600 bg-green-50 p-2 rounded border border-green-100 mb-2'><span class='material-symbols-outlined'>check_circle</span> Yeni e-posta şablonu eklendi: <strong>{$tpl['name']}</strong></div>";
+        }
+    }
+
     if (empty($logs)) {
         $logs[] = "<div class='flex items-center gap-2 text-green-700 bg-green-50 p-4 rounded-xl border border-green-200'><span class='material-symbols-outlined'>check_circle</span> Veritabanı yapısı güncel. Eksik tablo veya sütun bulunamadı.</div>";
     }

@@ -127,7 +127,12 @@ $demands = $stmt->fetchAll();
                         </span>
                     </td>
                     <td class="px-6 py-4 text-xs">
-                        <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district']) ?>
+                        <?php 
+                        $locationText = !empty($demand['address_text']) ? $demand['address_text'] : ($demand['city'] . ' / ' . $demand['district']);
+                        ?>
+                        <div class="truncate max-w-[200px]" title="<?= htmlspecialchars($locationText) ?>">
+                            <?= htmlspecialchars($locationText) ?>
+                        </div>
                     </td>
                     <td class="px-6 py-4 text-xs text-slate-500">
                         <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>

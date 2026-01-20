@@ -65,11 +65,13 @@ if ($myCategoryId && $myArea) {
                     AND d.status = 'approved'
                     AND d.category_id = :category_id
                     AND l.city = :city
-                    AND d.id NOT IN (SELECT demand_id FROM offers WHERE user_id = :user_id_2)";
+                    AND d.id NOT IN (SELECT demand_id FROM offers WHERE user_id = :user_id_2)
+                    AND d.user_id != :user_id_3";
             
             $params['category_id'] = $myCategoryId;
             $params['city'] = $myArea['city'];
             $params['user_id_2'] = $userId;
+            $params['user_id_3'] = $userId;
 
             if (!empty($myArea['districts'])) {
                 $sql .= " AND l.district = :district";

@@ -1,9 +1,15 @@
 <?php
+// Hata Raporlamayı Aç (Sorunu görmek için geçici olarak ekliyoruz)
+ini_set('display_errors', 1);
+ini_set('display_startup_errors', 1);
+error_reporting(E_ALL);
+
 require_once '../config/db.php';
-require_once 'includes/header.php';
+require_once 'includes/header.php'; // Header'ı (Session'ı) önce başlat
+require_once '../includes/mail-helper.php';
 
 // Güncelleme İşlemi
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['update_template'])) {
     $id = $_POST['id'];
     $subject = $_POST['subject'];
     $body = $_POST['body'];
@@ -13,8 +19,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $successMsg = "Şablon başarıyla güncellendi.";
 }
 
+// Test E-postası Gönderme
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_test_email'])) {
+    $templateKey = $_POST['template_key'];
+    
+    // Admin e-postasını bul
+    $stmtAdmin = $pdo->prepare("SELECT email FROM users WHERE id = ?");
+    $stmtAdmin->execute([$_SESSION['user_id']]);
+    $adminEmail = $stmtAdmin->fetchColumn();
+
+    if ($adminEmail) {
+        $dummyData = [
+            'name' => 'Test Kullanıcı',
+            'demand_title' => 'Örnek Hizmet Talebi',
+            'link' => 'https://iyiteklif.com.tr/ornek-link',
+            'provider_name' => 'Örnek Hizmet Veren',
+            'sender_name' => 'Örnek Gönderici',
+            'amount' => '1.250,00',
+            'package_name' => 'Premium Paket',
+            'code' => '123456'
+        ];
+
+        $sendError = '';
+        if (sendEmail($adminEmail, $templateKey, $dummyData, $sendError)) {
+            $successMsg = "Test e-postası gönderildi: " . htmlspecialchars($adminEmail);
+        } else {
+            $errorMsg = "E-posta gönderilemedi ($templateKey). Hata: " . htmlspecialchars($sendError);
+        }
+    }
+}
+
 $templates = $pdo->query("SELECT * FROM email_templates ORDER BY id ASC")->fetchAll();
 ?>
+
+<!-- Sistem Durumu -->
+<div class="mb-6 p-4 bg-blue-50 border border-blue-200 rounded-xl flex items-center justify-between">
+    <div class="flex items-center gap-3">
+        <span class="material-symbols-outlined text-blue-600">info</span>
+        <span class="text-sm text-blue-800">
+            <strong>PHPMailer Durumu:</strong> 
+            <?= class_exists('PHPMailer\PHPMailer\PHPMailer') ? '<span class="text-green-600 font-bold">Yüklü (Kullanıma Hazır)</span>' : '<span class="text-red-600 font-bold">Yüklü Değil</span> - Lütfen vendor klasörünü ana dizine yükleyin.' ?>
+        </span>
+    </div>
+</div>
 
 <div class="flex justify-between items-center mb-6">
     <div>
@@ -25,6 +72,9 @@ $templates = $pdo->query("SELECT * FROM email_templates ORDER BY id ASC")->fetch
 
 <?php if (isset($successMsg)): ?>
     <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6"><?= $successMsg ?></div>
+<?php endif; ?>
+<?php if (isset($errorMsg)): ?>
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6"><?= $errorMsg ?></div>
 <?php endif; ?>
 
 <div class="grid grid-cols-1 gap-6">
@@ -39,7 +89,18 @@ $templates = $pdo->query("SELECT * FROM email_templates ORDER BY id ASC")->fetch
             </div>
             
             <div id="body-<?= $tpl['id'] ?>" class="hidden p-6">
+                <div class="flex justify-end mb-4">
+                    <form method="POST" onsubmit="return confirm('Bu şablonun test e-postası admin hesabınıza gönderilecek. Onaylıyor musunuz?');">
+                        <input type="hidden" name="send_test_email" value="1">
+                        <input type="hidden" name="template_key" value="<?= htmlspecialchars($tpl['template_key']) ?>">
+                        <button type="submit" class="text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 px-3 py-2 rounded-lg font-bold transition-colors flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">send</span> Test E-postası Gönder
+                        </button>
+                    </form>
+                </div>
+
                 <form method="POST">
+                    <input type="hidden" name="update_template" value="1">
                     <input type="hidden" name="id" value="<?= $tpl['id'] ?>">
                     
                     <div class="mb-4">

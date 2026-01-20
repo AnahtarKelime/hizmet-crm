@@ -42,6 +42,10 @@ $currentPage = basename($_SERVER['PHP_SELF']);
             <!-- Hizmet Yönetimi -->
             <div class="pt-4 pb-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Hizmet Yönetimi</div>
             
+            <a href="locations.php" class="flex items-center gap-3 px-3 py-2 rounded-lg text-slate-300 hover:bg-slate-800 hover:text-white transition-colors">
+                <span class="material-symbols-outlined text-xl">map</span>
+                <span class="font-medium">Lokasyonlar</span>
+            </a>
             <a href="categories.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'categor') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">category</span>
                 Kategoriler

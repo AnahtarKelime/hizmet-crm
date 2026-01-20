@@ -111,7 +111,13 @@ $answers = $stmt->fetchAll();
                 </div>
                 <div>
                     <span class="block text-slate-500">Lokasyon</span>
-                    <span class="font-medium text-slate-800"><?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?></span>
+                    <span class="font-medium text-slate-800">
+                        <?php if (!empty($demand['address_text'])): ?>
+                            <?= htmlspecialchars($demand['address_text']) ?>
+                        <?php else: ?>
+                            <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                        <?php endif; ?>
+                    </span>
                 </div>
                 <div>
                     <span class="block text-slate-500">Oluşturulma Tarihi</span>
