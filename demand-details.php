@@ -243,94 +243,6 @@ if (empty($locationPoints) && !empty($demand['latitude']) && !empty($demand['lon
     <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <!-- Sol Kolon: Talep Bilgileri -->
         <div class="lg:col-span-2 space-y-6">
-            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider mb-2 inline-block">
-                            <?= htmlspecialchars($demand['category_name']) ?>
-                        </span>
-                        <h2 class="text-xl font-bold text-slate-800"><?= htmlspecialchars($demand['title']) ?></h2>
-                    </div>
-                    <div class="text-right">
-                        <span class="block text-xs text-slate-400 mb-1">Durum</span>
-                        <span class="px-3 py-1 rounded-full text-xs font-bold 
-                            <?= $demand['status'] == 'pending' ? 'bg-yellow-100 text-yellow-700' : 
-                               ($demand['status'] == 'approved' ? 'bg-green-100 text-green-700' : 
-                               ($demand['status'] == 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')) ?>">
-                            <?= $demand['status'] == 'pending' ? 'Beklemede' : 
-                               ($demand['status'] == 'approved' ? 'Onaylandı' : 
-                               ($demand['status'] == 'completed' ? 'Tamamlandı' : 'İptal')) ?>
-                        </span>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm border-t border-slate-100 pt-4">
-                    <div>
-                        <span class="block text-slate-500 mb-1">Lokasyon</span>
-                        <div class="space-y-3 mt-1">
-                            <?php if (!empty($locationPoints)): ?>
-                                <?php foreach($locationPoints as $point): ?>
-                                    <div class="font-medium text-slate-800 flex items-start gap-2">
-                                        <span class="material-symbols-outlined text-sm text-primary mt-0.5">location_on</span>
-                                        <div>
-                                            <?php
-                                                // Soru metnini daha kısa ve açıklayıcı hale getirelim
-                                                $displayQuestion = $point['question'];
-                                                if (strpos($displayQuestion, 'Paket nereden alınacak?') !== false) {
-                                                    $displayQuestion = 'Gönderici Adresi';
-                                                } elseif (strpos($displayQuestion, 'Paket nereye teslim edilecek?') !== false) {
-                                                    $displayQuestion = 'Alıcı Adresi';
-                                                } elseif (strpos($displayQuestion, 'Hizmet Konumu') !== false) {
-                                                    $displayQuestion = 'Hizmet Konumu';
-                                                }
-                                            ?>
-                                            <span class="text-xs text-slate-500"><?= $displayQuestion ?></span>
-                                            <p><?= $point['address'] ?></p>
-                                        </div>
-                                    </div>
-                                <?php endforeach; ?>
-                            <?php elseif (!empty($demand['address_text'])): ?>
-                                <p class="font-medium text-slate-800"><?= htmlspecialchars($demand['address_text']) ?></p>
-                            <?php else: ?>
-                                <p class="font-medium text-slate-800">
-                                    <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
-                                </p>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="block text-slate-500 mb-1">Oluşturulma Tarihi</span>
-                        <span class="font-medium text-slate-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">event</span>
-                            <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
-                        </span>
-                    </div>
-                </div>
-
-                <?php if (!empty($locationPoints)): ?>
-                    <div class="mt-6 pt-4 border-t border-slate-100">
-                        <h3 class="font-bold text-slate-800 mb-3">Harita Konumu</h3>
-                        <div id="map" class="w-full h-64 rounded-xl bg-slate-50 border border-slate-200"></div>
-                    </div>
-                <?php endif; ?>
-
-                <div class="mt-6">
-                    <h3 class="font-bold text-slate-800 mb-3">Detaylar</h3>
-                    <div class="bg-slate-50 rounded-xl p-4 space-y-3">
-                        <?php if (empty($displayAnswers)): ?>
-                            <p class="text-sm text-slate-500">Soru-cevap bulunmuyor.</p>
-                        <?php else: ?>
-                            <?php foreach ($displayAnswers as $ans): ?>
-                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                                <span class="text-sm font-medium text-slate-500"><?= htmlspecialchars($ans['question_text']) ?></span>
-                                <span class="text-sm font-bold text-slate-800 sm:col-span-2"><?= htmlspecialchars($ans['answer_text']) ?></span>
-                            </div>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </div>
-                </div>
-            </div>
-
             <?php if ($isOwner): // Müşteri Görünümü ?>
                 <!-- Gelen Teklifler -->
                 <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
@@ -482,6 +394,95 @@ if (empty($locationPoints) && !empty($demand['latitude']) && !empty($demand['lon
                     <?php endif; ?>
                 </div>
             <?php endif; ?>
+
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-100">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider mb-2 inline-block">
+                            <?= htmlspecialchars($demand['category_name']) ?>
+                        </span>
+                        <h2 class="text-xl font-bold text-slate-800"><?= htmlspecialchars($demand['title']) ?></h2>
+                    </div>
+                    <div class="text-right">
+                        <span class="block text-xs text-slate-400 mb-1">Durum</span>
+                        <span class="px-3 py-1 rounded-full text-xs font-bold 
+                            <?= $demand['status'] == 'pending' ? 'bg-yellow-100 text-yellow-700' : 
+                               ($demand['status'] == 'approved' ? 'bg-green-100 text-green-700' : 
+                               ($demand['status'] == 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700')) ?>">
+                            <?= $demand['status'] == 'pending' ? 'Beklemede' : 
+                               ($demand['status'] == 'approved' ? 'Onaylandı' : 
+                               ($demand['status'] == 'completed' ? 'Tamamlandı' : 'İptal')) ?>
+                        </span>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm border-t border-slate-100 pt-4">
+                    <div>
+                        <span class="block text-slate-500 mb-1">Lokasyon</span>
+                        <div class="space-y-3 mt-1">
+                            <?php if (!empty($locationPoints)): ?>
+                                <?php foreach($locationPoints as $point): ?>
+                                    <div class="font-medium text-slate-800 flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-sm text-primary mt-0.5">location_on</span>
+                                        <div>
+                                            <?php
+                                                // Soru metnini daha kısa ve açıklayıcı hale getirelim
+                                                $displayQuestion = $point['question'];
+                                                if (strpos($displayQuestion, 'Paket nereden alınacak?') !== false) {
+                                                    $displayQuestion = 'Gönderici Adresi';
+                                                } elseif (strpos($displayQuestion, 'Paket nereye teslim edilecek?') !== false) {
+                                                    $displayQuestion = 'Alıcı Adresi';
+                                                } elseif (strpos($displayQuestion, 'Hizmet Konumu') !== false) {
+                                                    $displayQuestion = 'Hizmet Konumu';
+                                                }
+                                            ?>
+                                            <span class="text-xs text-slate-500"><?= $displayQuestion ?></span>
+                                            <p><?= $point['address'] ?></p>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php elseif (!empty($demand['address_text'])): ?>
+                                <p class="font-medium text-slate-800"><?= htmlspecialchars($demand['address_text']) ?></p>
+                            <?php else: ?>
+                                <p class="font-medium text-slate-800">
+                                    <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                                </p>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                    <div>
+                        <span class="block text-slate-500 mb-1">Oluşturulma Tarihi</span>
+                        <span class="font-medium text-slate-800 flex items-center gap-1">
+                            <span class="material-symbols-outlined text-sm">event</span>
+                            <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
+                        </span>
+                    </div>
+                </div>
+
+                <?php if (!empty($locationPoints)): ?>
+                    <div class="mt-6 pt-4 border-t border-slate-100">
+                        <h3 class="font-bold text-slate-800 mb-3">Harita Konumu</h3>
+                        <div id="map" class="w-full h-64 rounded-xl bg-slate-50 border border-slate-200"></div>
+                    </div>
+                <?php endif; ?>
+
+                <div class="mt-6">
+                    <h3 class="font-bold text-slate-800 mb-3">Detaylar</h3>
+                    <div class="bg-slate-50 rounded-xl p-4 space-y-3">
+                        <?php if (empty($displayAnswers)): ?>
+                            <p class="text-sm text-slate-500">Soru-cevap bulunmuyor.</p>
+                        <?php else: ?>
+                            <?php foreach ($displayAnswers as $ans): ?>
+                            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                                <span class="text-sm font-medium text-slate-500"><?= htmlspecialchars($ans['question_text']) ?></span>
+                                <span class="text-sm font-bold text-slate-800 sm:col-span-2"><?= htmlspecialchars($ans['answer_text']) ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                </div>
+            </div>
+
         </div>
 
         <!-- Sağ Kolon: Bilgi -->
