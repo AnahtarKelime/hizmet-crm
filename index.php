@@ -201,7 +201,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
         </div>
         <div class="max-w-4xl mx-auto px-4 text-center relative z-10">
             <h3 class="text-4xl font-black text-white mb-8">İşini büyütmek mi istiyorsun?</h3>
-            <p class="text-white/80 mb-12 text-xl font-medium"> İyi Teklif ile her gün binlerce yeni müşteriye ulaş. Hemen ücretsiz profilini oluştur ve teklif vermeye baş.</p>
+            <p class="text-white/80 mb-12 text-xl font-medium"> İyi Teklif ile her gün binlerce yeni müşteriye ulaş. Hemen ücretsiz profilini oluştur ve teklif vermeye başla.</p>
             <div class="flex flex-col sm:flex-row justify-center gap-6">
                 <button class="bg-accent hover:bg-white text-primary font-black px-12 py-5 rounded-2xl transition-all text-xl shadow-2xl" onclick="window.location.href='provider/apply.php'">
                     Hizmet Veren Ol

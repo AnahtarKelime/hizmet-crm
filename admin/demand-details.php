@@ -79,6 +79,24 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$demandId]);
 $answers = $stmt->fetchAll();
+
+// Konum ve metin cevaplarını ayır
+$locationPoints = [];
+$textAnswers = [];
+foreach ($answers as $ans) {
+    $decoded = json_decode($ans['answer_text']);
+    // Cevabın geçerli bir JSON ve koordinat içerip içermediğini kontrol et
+    if (json_last_error() === JSON_ERROR_NONE && isset($decoded->lat) && isset($decoded->lng)) {
+        $locationPoints[] = [
+            'lat' => (float)$decoded->lat,
+            'lng' => (float)$decoded->lng,
+            'address' => htmlspecialchars($decoded->address ?? 'Adres belirtilmemiş'),
+            'question' => htmlspecialchars($ans['question_text'])
+        ];
+    } else {
+        $textAnswers[] = $ans;
+    }
+}
 ?>
 
 <div class="flex justify-between items-center mb-6">
@@ -130,15 +148,26 @@ $answers = $stmt->fetchAll();
                 </div>
             </div>
 
+            <?php if (!empty($locationPoints)): ?>
+            <div class="mt-6">
+                <h4 class="font-bold text-slate-800 mb-2">Konum Haritası</h4>
+                <div id="map" class="w-full h-80 rounded-lg bg-slate-100 border border-slate-200"></div>
+            </div>
+            <?php endif; ?>
+
             <div class="mt-6">
                 <h4 class="font-bold text-slate-800 mb-2">Soru & Cevaplar</h4>
                 <div class="space-y-3 bg-slate-50 p-4 rounded-lg">
-                    <?php foreach ($answers as $ans): ?>
+                    <?php if (empty($textAnswers)): ?>
+                        <p class="text-sm text-slate-500">Metin tabanlı soru-cevap bulunmuyor.</p>
+                    <?php else: ?>
+                        <?php foreach ($textAnswers as $ans): ?>
                         <div>
                             <p class="text-xs text-slate-500 font-bold"><?= htmlspecialchars($ans['question_text']) ?></p>
                             <p class="text-sm text-slate-700"><?= htmlspecialchars($ans['answer_text']) ?></p>
                         </div>
-                    <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
@@ -200,5 +229,60 @@ $answers = $stmt->fetchAll();
         </div>
     </div>
 </div>
+
+<?php
+// Google API Anahtarını veritabanından çek
+$googleApiKey = '';
+try {
+    $stmtKey = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'google_maps_api_key'");
+    $googleApiKey = $stmtKey->fetchColumn();
+} catch (Exception $e) {
+    // Hata durumunda boş kalır, script yüklenmez.
+}
+?>
+
+<?php if (!empty($locationPoints) && !empty($googleApiKey)): ?>
+<script>
+function initMap() {
+    const locations = <?= json_encode($locationPoints) ?>;
+    if (locations.length === 0) return;
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 12,
+        center: locations[0],
+        disableDefaultUI: true,
+        zoomControl: true,
+    });
+
+    const bounds = new google.maps.LatLngBounds();
+    const labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let labelIndex = 0;
+
+    locations.forEach(location => {
+        const marker = new google.maps.Marker({
+            position: { lat: location.lat, lng: location.lng },
+            map: map,
+            label: labels[labelIndex++ % labels.length],
+            title: location.question
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px; color:#333; font-family:sans-serif; font-size:13px;"><strong>${location.question}:</strong><br>${location.address}</div>`
+        });
+
+        marker.addListener("click", () => {
+            infoWindow.open(map, marker);
+        });
+
+        bounds.extend(marker.getPosition());
+    });
+
+    if (locations.length > 1) {
+        map.fitBounds(bounds);
+    }
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleApiKey) ?>&callback=initMap" async defer></script>
+<?php endif; ?>
 
 <?php require_once 'includes/footer.php'; ?>

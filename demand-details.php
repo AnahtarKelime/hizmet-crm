@@ -180,6 +180,38 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute(['demand_id' => $demandId, 'current_user' => $userId]);
 $offers = $stmt->fetchAll();
+
+// Konum ve metin cevaplarını ayır
+$locationPoints = [];
+$displayAnswers = []; // Kullanıcıya gösterilecek cevaplar (konumlar için sadece adres metni)
+
+foreach ($answers as $ans) {
+    $decoded = json_decode($ans['answer_text']);
+    // Cevabın geçerli bir JSON ve koordinat içerip içermediğini kontrol et
+    if (json_last_error() === JSON_ERROR_NONE && isset($decoded->lat) && isset($decoded->lng)) {
+        $locationPoints[] = [
+            'lat' => (float)$decoded->lat,
+            'lng' => (float)$decoded->lng,
+            'address' => htmlspecialchars($decoded->address ?? 'Adres belirtilmemiş'),
+            'question' => htmlspecialchars($ans['question_text'])
+        ];
+        // Kullanıcı dostu gösterim için sadece adresi displayAnswers'a ekle
+        $displayAnswers[] = ['question_text' => $ans['question_text'], 'answer_text' => $decoded->address ?? 'Adres belirtilmemiş'];
+    } else {
+        // Metin tabanlı cevapları doğrudan displayAnswers'a ekle
+        $displayAnswers[] = $ans;
+    }
+}
+
+// Eğer dinamik cevaplarda konum yoksa, ana talep kaydındaki konumu haritaya ekle
+if (empty($locationPoints) && !empty($demand['latitude']) && !empty($demand['longitude'])) {
+    $locationPoints[] = [
+        'lat' => (float)$demand['latitude'],
+        'lng' => (float)$demand['longitude'],
+        'address' => htmlspecialchars($demand['address_text'] ?? 'Konum belirtilmemiş'),
+        'question' => 'Hizmet Konumu'
+    ];
+}
 ?>
 
 <main class="max-w-7xl mx-auto px-4 py-12 min-h-[60vh]">
@@ -232,17 +264,39 @@ $offers = $stmt->fetchAll();
                     </div>
                 </div>
                 
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm border-t border-slate-100 pt-4">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4 text-sm border-t border-slate-100 pt-4">
                     <div>
                         <span class="block text-slate-500 mb-1">Lokasyon</span>
-                        <span class="font-medium text-slate-800 flex items-center gap-1">
-                            <span class="material-symbols-outlined text-sm">location_on</span>
-                            <?php if (!empty($demand['address_text'])): ?>
-                                <?= htmlspecialchars($demand['address_text']) ?>
+                        <div class="space-y-3 mt-1">
+                            <?php if (!empty($locationPoints)): ?>
+                                <?php foreach($locationPoints as $point): ?>
+                                    <div class="font-medium text-slate-800 flex items-start gap-2">
+                                        <span class="material-symbols-outlined text-sm text-primary mt-0.5">location_on</span>
+                                        <div>
+                                            <?php
+                                                // Soru metnini daha kısa ve açıklayıcı hale getirelim
+                                                $displayQuestion = $point['question'];
+                                                if (strpos($displayQuestion, 'Paket nereden alınacak?') !== false) {
+                                                    $displayQuestion = 'Gönderici Adresi';
+                                                } elseif (strpos($displayQuestion, 'Paket nereye teslim edilecek?') !== false) {
+                                                    $displayQuestion = 'Alıcı Adresi';
+                                                } elseif (strpos($displayQuestion, 'Hizmet Konumu') !== false) {
+                                                    $displayQuestion = 'Hizmet Konumu';
+                                                }
+                                            ?>
+                                            <span class="text-xs text-slate-500"><?= $displayQuestion ?></span>
+                                            <p><?= $point['address'] ?></p>
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            <?php elseif (!empty($demand['address_text'])): ?>
+                                <p class="font-medium text-slate-800"><?= htmlspecialchars($demand['address_text']) ?></p>
                             <?php else: ?>
-                                <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                                <p class="font-medium text-slate-800">
+                                    <?= htmlspecialchars($demand['city'] . ' / ' . $demand['district'] . ' / ' . $demand['neighborhood']) ?>
+                                </p>
                             <?php endif; ?>
-                        </span>
+                        </div>
                     </div>
                     <div>
                         <span class="block text-slate-500 mb-1">Oluşturulma Tarihi</span>
@@ -253,84 +307,26 @@ $offers = $stmt->fetchAll();
                     </div>
                 </div>
 
-                <?php if (!empty($demand['latitude']) && !empty($demand['longitude'])): ?>
+                <?php if (!empty($locationPoints)): ?>
                     <div class="mt-6 pt-4 border-t border-slate-100">
                         <h3 class="font-bold text-slate-800 mb-3">Harita Konumu</h3>
                         <div id="map" class="w-full h-64 rounded-xl bg-slate-50 border border-slate-200"></div>
-                        <?php if (!empty($demand['address_text'])): ?>
-                            <div class="mt-3 flex items-start gap-2 text-sm text-slate-600 bg-slate-50 p-3 rounded-lg border border-slate-100">
-                                <span class="material-symbols-outlined text-primary text-lg shrink-0">location_on</span>
-                                <span><?= htmlspecialchars($demand['address_text']) ?></span>
-                            </div>
-                        <?php endif; ?>
-                        <a href="https://www.google.com/maps/dir/?api=1&destination=<?= $demand['latitude'] ?>,<?= $demand['longitude'] ?>" target="_blank" class="mt-3 w-full py-2.5 bg-white border border-slate-200 text-slate-700 font-bold rounded-lg hover:bg-slate-50 hover:text-primary hover:border-primary/30 transition-all flex items-center justify-center gap-2 text-sm shadow-sm">
-                            <span class="material-symbols-outlined text-lg">directions</span>
-                            Yol Tarifi Al
-                        </a>
-                        <script>
-                            function initMap() {
-                                // Sitenizin tasarımına uygun özel harita stili (Sade/Gri Tonlar)
-                                const mapStyles = [
-                                    { "featureType": "water", "elementType": "geometry", "stylers": [{ "color": "#e9e9e9" }, { "lightness": 17 }] },
-                                    { "featureType": "landscape", "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 20 }] },
-                                    { "featureType": "road.highway", "elementType": "geometry.fill", "stylers": [{ "color": "#ffffff" }, { "lightness": 17 }] },
-                                    { "featureType": "road.highway", "elementType": "geometry.stroke", "stylers": [{ "color": "#ffffff" }, { "lightness": 29 }, { "weight": 0.2 }] },
-                                    { "featureType": "road.arterial", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 18 }] },
-                                    { "featureType": "road.local", "elementType": "geometry", "stylers": [{ "color": "#ffffff" }, { "lightness": 16 }] },
-                                    { "featureType": "poi", "elementType": "geometry", "stylers": [{ "color": "#f5f5f5" }, { "lightness": 21 }] },
-                                    { "featureType": "poi.park", "elementType": "geometry", "stylers": [{ "color": "#dedede" }, { "lightness": 21 }] },
-                                    { "elementType": "labels.text.stroke", "stylers": [{ "visibility": "on" }, { "color": "#ffffff" }, { "lightness": 16 }] },
-                                    { "elementType": "labels.text.fill", "stylers": [{ "saturation": 36 }, { "color": "#333333" }, { "lightness": 40 }] },
-                                    { "elementType": "labels.icon", "stylers": [{ "visibility": "off" }] },
-                                    { "featureType": "transit", "elementType": "geometry", "stylers": [{ "color": "#f2f2f2" }, { "lightness": 19 }] },
-                                    { "featureType": "administrative", "elementType": "geometry.fill", "stylers": [{ "color": "#fefefe" }, { "lightness": 20 }] },
-                                    { "featureType": "administrative", "elementType": "geometry.stroke", "stylers": [{ "color": "#fefefe" }, { "lightness": 17 }, { "weight": 1.2 }] }
-                                ];
-
-                                const position = { lat: <?= floatval($demand['latitude']) ?>, lng: <?= floatval($demand['longitude']) ?> };
-                                const map = new google.maps.Map(document.getElementById("map"), {
-                                    zoom: 15,
-                                    center: position,
-                                    disableDefaultUI: true,
-                                    zoomControl: true,
-                                    styles: mapStyles // Stili buraya ekliyoruz
-                                });
-                                const marker = new google.maps.Marker({ position: position, map: map });
-
-                                <?php if (!empty($demand['address_text'])): ?>
-                                const infoWindow = new google.maps.InfoWindow({
-                                    content: '<div style="padding:5px; color:#333; font-family:sans-serif; font-size:13px;"><strong>Konum:</strong><br><?= htmlspecialchars($demand['address_text']) ?></div>'
-                                });
-                                marker.addListener("click", () => {
-                                    infoWindow.open(map, marker);
-                                });
-                                <?php endif; ?>
-                            }
-
-                            // Google Maps API zaten yüklendiyse direkt başlat, yoksa callback bekle
-                            if (typeof google !== 'undefined' && google.maps) {
-                                initMap();
-                            } else {
-                                // Header'daki initLocationServices fonksiyonunu genişlet
-                                const originalInit = window.initLocationServices;
-                                window.initLocationServices = function() {
-                                    if (originalInit) originalInit();
-                                    initMap();
-                                };
-                            }
-                        </script>
                     </div>
                 <?php endif; ?>
 
                 <div class="mt-6">
                     <h3 class="font-bold text-slate-800 mb-3">Detaylar</h3>
                     <div class="bg-slate-50 rounded-xl p-4 space-y-3">
-                        <?php foreach ($answers as $ans): ?>
+                        <?php if (empty($displayAnswers)): ?>
+                            <p class="text-sm text-slate-500">Soru-cevap bulunmuyor.</p>
+                        <?php else: ?>
+                            <?php foreach ($displayAnswers as $ans): ?>
                             <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
                                 <span class="text-sm font-medium text-slate-500"><?= htmlspecialchars($ans['question_text']) ?></span>
                                 <span class="text-sm font-bold text-slate-800 sm:col-span-2"><?= htmlspecialchars($ans['answer_text']) ?></span>
                             </div>
-                        <?php endforeach; ?>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </div>
                 </div>
             </div>
@@ -548,6 +544,61 @@ $offers = $stmt->fetchAll();
         </div>
     </div>
 </main>
+
+<?php
+// Google API Anahtarını veritabanından çek
+$googleApiKey = '';
+try {
+    $stmtKey = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'google_maps_api_key'");
+    $googleApiKey = $stmtKey->fetchColumn();
+} catch (Exception $e) {
+    // Hata durumunda boş kalır, script yüklenmez.
+}
+?>
+
+<?php if (!empty($locationPoints) && !empty($googleApiKey)): ?>
+<script>
+function initMap() {
+    const locations = <?= json_encode($locationPoints) ?>;
+    if (locations.length === 0) return;
+
+    const map = new google.maps.Map(document.getElementById("map"), {
+        zoom: 12,
+        center: locations[0],
+        disableDefaultUI: true,
+        zoomControl: true,
+    });
+
+    const bounds = new google.maps.LatLngBounds();
+    const labels = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    let labelIndex = 0;
+
+    locations.forEach(location => {
+        const marker = new google.maps.Marker({
+            position: { lat: location.lat, lng: location.lng },
+            map: map,
+            label: labels[labelIndex++ % labels.length],
+            title: location.question
+        });
+
+        const infoWindow = new google.maps.InfoWindow({
+            content: `<div style="padding:5px; color:#333; font-family:sans-serif; font-size:13px;"><strong>${location.question}:</strong><br>${location.address}</div>`
+        });
+
+        marker.addListener("click", () => {
+            infoWindow.open(map, marker);
+        });
+
+        bounds.extend(marker.getPosition());
+    });
+
+    if (locations.length > 1) {
+        map.fitBounds(bounds);
+    }
+}
+</script>
+<script src="https://maps.googleapis.com/maps/api/js?key=<?= htmlspecialchars($googleApiKey) ?>&callback=initMap" async defer></script>
+<?php endif; ?>
 
 <!-- Rating Success Modal -->
 <div id="rating-success-modal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/60 backdrop-blur-sm transition-opacity duration-300 opacity-0">

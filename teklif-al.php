@@ -192,6 +192,20 @@ require_once 'includes/header.php';
 
                                 <?php elseif ($q['input_type'] === 'date'): ?>
                                     <input type="date" name="answers[<?= $q['id'] ?>]" class="w-full rounded-xl border-slate-200 py-3 px-4 focus:ring-2 focus:ring-primary focus:border-transparent" <?= $q['is_required'] ? 'required' : '' ?>>
+                                
+                                <?php elseif ($q['input_type'] === 'location'): ?>
+                                    <div class="relative">
+                                        <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                            <span class="material-symbols-outlined text-slate-400">location_on</span>
+                                        </div>
+                                        <input type="text" 
+                                               id="location-search-<?= $q['id'] ?>" 
+                                               class="w-full rounded-xl border-slate-200 py-3 pl-10 pr-4 focus:ring-2 focus:ring-primary focus:border-transparent location-autocomplete-input validation-proxy" 
+                                               placeholder="Adres arayın..."
+                                               data-question-id="<?= $q['id'] ?>"
+                                               <?= $q['is_required'] ? 'data-required="true"' : '' ?>>
+                                        <input type="hidden" name="answers[<?= $q['id'] ?>]" id="location-answer-<?= $q['id'] ?>">
+                                    </div>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -310,6 +324,40 @@ require_once 'includes/header.php';
                 errorDiv.classList.remove('hidden');
             }
         }
+
+        // In-form Autocomplete
+        const locationInputs = document.querySelectorAll('.location-autocomplete-input');
+        locationInputs.forEach(input => {
+            const autocomplete = new google.maps.places.Autocomplete(input, {
+                componentRestrictions: { country: "tr" },
+                fields: ["formatted_address", "geometry"],
+                types: ["geocode"]
+            });
+
+            autocomplete.addListener("place_changed", () => {
+                const place = autocomplete.getPlace();
+                const questionId = input.dataset.questionId;
+                const hiddenInput = document.getElementById('location-answer-' + questionId);
+
+                if (place.geometry && hiddenInput) {
+                    const locationData = {
+                        address: place.formatted_address,
+                        lat: place.geometry.location.lat(),
+                        lng: place.geometry.location.lng()
+                    };
+                    hiddenInput.value = JSON.stringify(locationData);
+                    input.setCustomValidity(''); // Clear any previous validation error
+                    hiddenInput.dispatchEvent(new Event('change', { bubbles: true })); // Trigger autosave
+                }
+            });
+
+            // If user types manually after selecting, clear the hidden value to force re-selection
+            input.addEventListener('input', () => {
+                const questionId = input.dataset.questionId;
+                const hiddenInput = document.getElementById('location-answer-' + questionId);
+                if(hiddenInput) hiddenInput.value = '';
+            });
+        });
 
         // Autocomplete
         const input = document.getElementById("modal-location-search");
@@ -584,6 +632,38 @@ document.addEventListener('DOMContentLoaded', () => {
                 window.location.href = 'login.php?redirect=' + redirectUrl;
             } else {
                 e.preventDefault();
+
+                // Son adım için doğrulama yap
+                const currentStepEl = steps[currentStep];
+                const inputs = currentStepEl.querySelectorAll('input, select, textarea');
+                let allValid = true;
+
+                const locationInputsInStep = currentStepEl.querySelectorAll('.location-autocomplete-input');
+                for (const locInput of locationInputsInStep) {
+                    const questionId = locInput.dataset.questionId;
+                    const hiddenInput = document.getElementById('location-answer-' + questionId);
+                    if (locInput.dataset.required === 'true' && !hiddenInput.value) {
+                        allValid = false;
+                        locInput.setCustomValidity('Lütfen listeden geçerli bir adres seçin.');
+                        locInput.reportValidity();
+                        locInput.addEventListener('input', () => locInput.setCustomValidity(''), { once: true });
+                        break;
+                    }
+                }
+                if (!allValid) return;
+
+                for (const input of inputs) {
+                    if (input.classList.contains('validation-proxy')) {
+                        continue; // Skip this input, it's handled by the custom validation above
+                    }
+                    if (!input.checkValidity()) {
+                        allValid = false;
+                        input.reportValidity();
+                        break;
+                    }
+                }
+                if (!allValid) return;
+
                 localStorage.removeItem(storageKey);
 
                 // Konfeti Animasyonu
@@ -600,9 +680,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     submitBtn.classList.add('opacity-75', 'cursor-not-allowed');
                 }
 
-                setTimeout(() => {
-                    form.submit();
-                }, 1500);
+                form.submit(); // Doğrulama sonrası formu hemen gönder
             }
         });
     }
@@ -689,8 +767,27 @@ document.addEventListener('DOMContentLoaded', () => {
         const currentStepEl = steps[currentStep];
         const inputs = currentStepEl.querySelectorAll('input, select, textarea');
         let allValid = true;
-        
+
+        // Custom validation for location inputs
+        const locationInputsInStep = currentStepEl.querySelectorAll('.location-autocomplete-input');
+        for (const locInput of locationInputsInStep) {
+            const questionId = locInput.dataset.questionId;
+            const hiddenInput = document.getElementById('location-answer-' + questionId);
+            if (locInput.dataset.required === 'true' && !hiddenInput.value) {
+                allValid = false;
+                locInput.setCustomValidity('Lütfen listeden geçerli bir adres seçin.');
+                locInput.reportValidity();
+                // Clear custom validity after showing it, so user can type again
+                locInput.addEventListener('input', () => locInput.setCustomValidity(''), { once: true });
+                break;
+            }
+        }
+        if (!allValid) return; // Stop if location validation failed
+
         for (const input of inputs) {
+            if (input.classList.contains('validation-proxy')) {
+                continue; // Skip this input, it's handled by the custom validation above
+            }
             if (!input.checkValidity()) {
                 allValid = false;
                 input.reportValidity();
