@@ -16,6 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $firstName = trim($_POST['first_name'] ?? '');
     $lastName = trim($_POST['last_name'] ?? '');
     $phone = trim($_POST['phone'] ?? '');
+    $whatsapp = trim($_POST['whatsapp'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $currentPassword = $_POST['current_password'] ?? '';
     $newPassword = $_POST['new_password'] ?? '';
@@ -26,7 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     } else {
         // Şifre değişikliği varsa kontrol et
         $passwordSql = "";
-        $params = [$firstName, $lastName, $phone, $email];
+        $params = [$firstName, $lastName, $phone, $whatsapp, $email];
 
         if (!empty($newPassword)) {
             $stmtUser = $pdo->prepare("SELECT password FROM users WHERE id = ?");
@@ -47,6 +48,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Avatar Yükleme
         if (empty($errorMsg) && isset($_FILES['avatar']) && $_FILES['avatar']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['avatar']['size'] > 10485760) {
+                $errorMsg = "Profil fotoğrafı 10MB'dan büyük olamaz.";
+            } else {
             $uploadDir = 'uploads/avatars/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
@@ -68,12 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 $errorMsg = 'Sadece JPG, PNG ve WEBP formatları kabul edilir.';
             }
+            }
         }
 
         if (empty($errorMsg)) {
             try {
                 $params[] = $userId;
-                $stmt = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, phone = ?, email = ? $passwordSql WHERE id = ?");
+                $stmt = $pdo->prepare("UPDATE users SET first_name = ?, last_name = ?, phone = ?, whatsapp = ?, email = ? $passwordSql WHERE id = ?");
                 $stmt->execute($params);
                 
                 // Session'ı güncelle
@@ -184,9 +189,9 @@ require_once 'includes/header.php';
                                 </div>
                                 <div>
                                     <label class="block text-sm font-semibold text-slate-700 dark:text-slate-300 mb-1">Profil Fotoğrafı</label>
-                                    <input type="file" name="avatar" id="avatarInput" class="hidden" accept="image/*" onchange="previewImage(this)">
+                                    <input type="file" name="avatar" id="avatarInput" class="hidden" accept="image/*">
                                     <button type="button" onclick="document.getElementById('avatarInput').click()" class="text-sm text-primary font-bold hover:underline">Fotoğrafı Değiştir</button>
-                                    <p class="text-xs text-slate-500 mt-1">JPG, PNG veya WEBP. Maks. 2MB.</p>
+                                    <p id="avatarStatus" class="text-xs text-slate-500 mt-1">JPG, PNG veya WEBP. Maks. 2MB.</p>
                                 </div>
                             </div>
 
@@ -201,6 +206,10 @@ require_once 'includes/header.php';
                             <div class="flex flex-col gap-2">
                                 <p class="text-slate-700 dark:text-slate-300 text-sm font-semibold">Telefon Numarası</p>
                                 <input name="phone" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" placeholder="05XX XXX XX XX" value="<?= htmlspecialchars($user['phone']) ?>"/>
+                            </div>
+                            <div class="flex flex-col gap-2">
+                                <p class="text-slate-700 dark:text-slate-300 text-sm font-semibold">WhatsApp Numarası</p>
+                                <input name="whatsapp" class="w-full rounded-lg border-slate-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white h-12 px-4 focus:ring-primary focus:border-primary" placeholder="05XX XXX XX XX" value="<?= htmlspecialchars($user['whatsapp'] ?? '') ?>"/>
                             </div>
                             <div class="flex flex-col gap-2">
                                 <p class="text-slate-700 dark:text-slate-300 text-sm font-semibold">E-posta Adresi</p>
@@ -301,6 +310,31 @@ require_once 'includes/header.php';
     </div>
 </main>
 
+<!-- Crop Modal -->
+<div id="cropModal" class="fixed inset-0 z-[100] hidden flex items-center justify-center bg-slate-900/80 backdrop-blur-sm p-4">
+    <div class="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+        <div class="p-4 border-b border-slate-100 dark:border-slate-700 flex justify-between items-center">
+            <h3 class="font-bold text-lg text-slate-800 dark:text-white">Profil Fotoğrafını Düzenle</h3>
+            <button type="button" onclick="closeCropModal()" class="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors">
+                <span class="material-symbols-outlined">close</span>
+            </button>
+        </div>
+        <div class="flex-1 overflow-hidden bg-slate-900 relative min-h-[300px] flex items-center justify-center">
+            <img id="cropImage" src="" class="max-w-full max-h-full block">
+        </div>
+        <div class="p-4 border-t border-slate-100 dark:border-slate-700 flex justify-between items-center bg-slate-50 dark:bg-slate-800/50">
+            <p class="text-xs text-slate-500">Fotoğrafı sürükleyerek ve yakınlaştırarak ayarlayabilirsiniz.</p>
+            <div class="flex gap-3">
+                <button type="button" onclick="closeCropModal()" class="px-4 py-2 text-slate-600 dark:text-slate-300 font-bold hover:bg-slate-200 dark:hover:bg-slate-700 rounded-lg transition-colors text-sm">İptal</button>
+                <button type="button" id="cropBtn" class="px-6 py-2 bg-primary text-white font-bold rounded-lg hover:bg-primary/90 transition-colors text-sm shadow-lg shadow-primary/20">Kaydet</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/compressorjs/1.2.1/compressor.min.js"></script>
 <script>
 function previewImage(input) {
     if (input.files && input.files[0]) {
@@ -311,11 +345,137 @@ function previewImage(input) {
                 img.src = e.target.result;
             } else {
                 var placeholder = document.getElementById('avatarPreviewPlaceholder');
-                if(placeholder) placeholder.innerHTML = `<img src="${e.target.result}" class="w-full h-full rounded-full object-cover">`;
+                if(placeholder) {
+                    // Placeholder div'i img ile değiştir
+                    const newImg = document.createElement('img');
+                    newImg.src = e.target.result;
+                    newImg.className = "w-20 h-20 rounded-full object-cover border-2 border-slate-200 group-hover:opacity-75 transition-opacity";
+                    newImg.id = "avatarPreview";
+                    placeholder.parentNode.replaceChild(newImg, placeholder);
+                }
             }
         }
         reader.readAsDataURL(input.files[0]);
     }
 }
+
+let cropper;
+const cropModal = document.getElementById('cropModal');
+const cropImage = document.getElementById('cropImage');
+const avatarInput = document.getElementById('avatarInput');
+const statusText = document.getElementById('avatarStatus');
+
+function closeCropModal() {
+    cropModal.classList.add('hidden');
+    if (cropper) {
+        cropper.destroy();
+        cropper = null;
+    }
+    // Eğer inputta dosya varsa ve processed değilse (iptal durumu), inputu temizle
+    if (avatarInput.files.length > 0 && !avatarInput.files[0].processed) {
+        avatarInput.value = '';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    if (avatarInput) {
+        avatarInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            // Zaten işlenmişse (kırpılmış ve sıkıştırılmışsa) sadece önizle
+            if (file.processed) {
+                previewImage(this);
+                return;
+            }
+
+            // Dosya seçildiğinde modalı aç
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                cropImage.src = e.target.result;
+                cropModal.classList.remove('hidden');
+                
+                if (cropper) {
+                    cropper.destroy();
+                }
+                
+                cropper = new Cropper(cropImage, {
+                    aspectRatio: 1, // Kare
+                    viewMode: 1,
+                    dragMode: 'move',
+                    autoCropArea: 1,
+                    restore: false,
+                    guides: true,
+                    center: true,
+                    highlight: false,
+                    cropBoxMovable: true,
+                    cropBoxResizable: true,
+                    toggleDragModeOnDblclick: false,
+                    minCropBoxWidth: 100,
+                    minCropBoxHeight: 100,
+                });
+            };
+            reader.readAsDataURL(file);
+        });
+
+        document.getElementById('cropBtn').addEventListener('click', function() {
+            if (!cropper) return;
+
+            // Butonu pasif yap
+            const btn = this;
+            const originalText = btn.innerText;
+            btn.disabled = true;
+            btn.innerText = 'İşleniyor...';
+
+            // Kırpılan alanı al
+            cropper.getCroppedCanvas({
+                width: 600, // Avatar için yeterli boyut
+                height: 600,
+                fillColor: '#fff',
+                imageSmoothingEnabled: true,
+                imageSmoothingQuality: 'high',
+            }).toBlob(function(blob) {
+                // Sıkıştır
+                new Compressor(blob, {
+                    quality: 0.8,
+                    success(result) {
+                        const file = new File([result], "avatar.jpg", {
+                            type: "image/jpeg",
+                            lastModified: Date.now(),
+                        });
+                        
+                        // İşlendi bayrağı
+                        file.processed = true;
+
+                        // Inputu güncelle
+                        const dataTransfer = new DataTransfer();
+                        dataTransfer.items.add(file);
+                        avatarInput.files = dataTransfer.files;
+
+                        // UI Güncelle
+                        if (statusText) {
+                            statusText.innerHTML = '<span class="flex items-center gap-1 text-green-600"><span class="material-symbols-outlined text-sm">check_circle</span> Hazır (' + (result.size / 1024).toFixed(0) + ' KB)</span>';
+                        }
+                        
+                        // Önizleme
+                        previewImage(avatarInput);
+                        
+                        // Kapat
+                        closeCropModal();
+                        
+                        // Butonu eski haline getir
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                    },
+                    error(err) {
+                        console.error('Sıkıştırma hatası:', err.message);
+                        btn.disabled = false;
+                        btn.innerText = originalText;
+                    },
+                });
+            }, 'image/jpeg', 0.9);
+        });
+    }
+});
 </script>
 <?php require_once 'includes/footer.php'; ?>

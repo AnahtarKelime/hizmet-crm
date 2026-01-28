@@ -27,3 +27,6 @@ try {
 } catch (\PDOException $e) {
      die("Bağlantı Hatası: " . $e->getMessage());
 }
+
+// Cache Sistemini Başlat
+require_once dirname(__DIR__) . '/includes/cache-helper.php';

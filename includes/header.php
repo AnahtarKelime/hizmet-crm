@@ -12,7 +12,7 @@ $pathPrefix = $pathPrefix ?? '';
 if (!$isLoggedIn && isset($_COOKIE['remember_token']) && isset($pdo)) {
     list($rUserId, $rHash) = explode(':', base64_decode($_COOKIE['remember_token']), 2);
     if ($rUserId && $rHash) {
-        $stmtR = $pdo->prepare("SELECT * FROM users WHERE id = ?");
+        $stmtR = $pdo->prepare("SELECT id, first_name, last_name, password, role FROM users WHERE id = ?");
         $stmtR->execute([$rUserId]);
         $userR = $stmtR->fetch();
         if ($userR && hash_equals(hash_hmac('sha256', $userR['password'], 'HIZMET_CRM_SECURE_KEY'), $rHash)) {
@@ -26,7 +26,7 @@ if (!$isLoggedIn && isset($_COOKIE['remember_token']) && isset($pdo)) {
 
 // Kullanıcı Rolünü ve Bilgilerini Güncelle (Session Senkronizasyonu)
 if ($isLoggedIn && isset($pdo)) {
-    $stmt = $pdo->prepare("SELECT role, first_name, last_name, avatar_url FROM users WHERE id = ?");
+    $stmt = $pdo->prepare("SELECT role, first_name, last_name, avatar_url, email, phone, address_text, city, district FROM users WHERE id = ?");
     $stmt->execute([$_SESSION['user_id']]);
     $currentUser = $stmt->fetch();
     if ($currentUser) {
@@ -97,50 +97,69 @@ if ($isLoggedIn && isset($pdo)) {
 
 // Site Ayarlarını Çek
 $siteSettings = [];
-if (isset($pdo)) {
-    try {
-        $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
-        while ($row = $stmt->fetch()) {
-            $siteSettings[$row['setting_key']] = $row['setting_value'];
+// Cache kontrolü
+$siteSettings = $cache->get('site_settings');
+
+if ($siteSettings === null) {
+    if (isset($pdo)) {
+        try {
+            $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings");
+            while ($row = $stmt->fetch()) {
+                $siteSettings[$row['setting_key']] = $row['setting_value'];
+            }
+            $cache->set('site_settings', $siteSettings, 3600); // 1 saat cache
+        } catch (Exception $e) {
+            // Hata durumunda varsayılanlar
         }
-    } catch (Exception $e) {
-        // Hata durumunda varsayılanlar
     }
 }
 $siteTitle = $siteSettings['site_title'] ?? 'iyiteklif';
-$siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul';
+if (!isset($siteDescription)) {
+    $siteDescription = $siteSettings['site_description'] ?? 'Aradığın Hizmeti Bul';
+}
 $siteKeywords = $siteSettings['site_keywords'] ?? '';
 $siteFavicon = $siteSettings['site_favicon'] ?? '';
 
 // Menüleri Çek
 $headerMenuItems = [];
-if (isset($pdo)) {
-    $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'header' AND is_active = 1 ORDER BY sort_order ASC");
-    $headerMenuItems = $stmt->fetchAll();
-    
-    // Mega Menü Öğelerini Çek
-    $megaMenuItemsRaw = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'mega_menu' AND is_active = 1 ORDER BY sort_order ASC")->fetchAll();
-    
-    // Önce ebeveynlerin işlendiğinden emin olmak için sıralama yapıyoruz
-    usort($megaMenuItemsRaw, function($a, $b) {
-        // Parent ID'si olmayanlar (Ana kategoriler) önce gelsin
-        $aIsParent = empty($a['parent_id']);
-        $bIsParent = empty($b['parent_id']);
-        
-        if ($aIsParent && !$bIsParent) return -1;
-        if (!$aIsParent && $bIsParent) return 1;
-        
-        return $a['sort_order'] <=> $b['sort_order'];
-    });
+$megaMenuTree = [];
 
-    $megaMenuTree = [];
-    foreach ($megaMenuItemsRaw as $item) {
-        if (empty($item['parent_id'])) {
-            $megaMenuTree[$item['id']] = $item;
-            $megaMenuTree[$item['id']]['children'] = [];
-        } else {
-            $megaMenuTree[$item['parent_id']]['children'][] = $item;
+// Cache kontrolü
+$cachedMenus = $cache->get('site_menus');
+
+if ($cachedMenus !== null) {
+    $headerMenuItems = $cachedMenus['header'];
+    $megaMenuTree = $cachedMenus['mega'];
+} else {
+    if (isset($pdo)) {
+        $stmt = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'header' AND is_active = 1 ORDER BY sort_order ASC");
+        $headerMenuItems = $stmt->fetchAll();
+        
+        // Mega Menü Öğelerini Çek
+        $megaMenuItemsRaw = $pdo->query("SELECT * FROM menu_items WHERE menu_location = 'mega_menu' AND is_active = 1 ORDER BY sort_order ASC")->fetchAll();
+        
+        // Önce ebeveynlerin işlendiğinden emin olmak için sıralama yapıyoruz
+        usort($megaMenuItemsRaw, function($a, $b) {
+            // Parent ID'si olmayanlar (Ana kategoriler) önce gelsin
+            $aIsParent = empty($a['parent_id']);
+            $bIsParent = empty($b['parent_id']);
+            
+            if ($aIsParent && !$bIsParent) return -1;
+            if (!$aIsParent && $bIsParent) return 1;
+            
+            return $a['sort_order'] <=> $b['sort_order'];
+        });
+
+        foreach ($megaMenuItemsRaw as $item) {
+            if (empty($item['parent_id'])) {
+                $megaMenuTree[$item['id']] = $item;
+                $megaMenuTree[$item['id']]['children'] = [];
+            } else {
+                $megaMenuTree[$item['parent_id']]['children'][] = $item;
+            }
         }
+        
+        $cache->set('site_menus', ['header' => $headerMenuItems, 'mega' => $megaMenuTree], 86400); // 24 saat cache
     }
 }
 
@@ -168,6 +187,7 @@ $headerLocationText = isset($_COOKIE['user_location']) ? $_COOKIE['user_location
     <?php if ($siteFavicon): ?>
     <link rel="icon" href="<?= $pathPrefix . htmlspecialchars($siteFavicon) ?>">
     <?php endif; ?>
+    <link rel="manifest" href="<?= $pathPrefix ?>manifest.php">
     <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&display=swap" rel="stylesheet"/>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet"/>
@@ -208,11 +228,121 @@ $headerLocationText = isset($_COOKIE['user_location']) ? $_COOKIE['user_location
         <?= $siteSettings['custom_css'] ?>
     </style>
     <?php endif; ?>
+
+    <!-- Google Search Console -->
+    <?php if (!empty($siteSettings['google_search_console_meta'])): ?>
+        <?= $siteSettings['google_search_console_meta'] ?>
+    <?php endif; ?>
+
+    <!-- Google Tag Manager -->
+    <?php if (!empty($siteSettings['google_tag_manager_id'])): ?>
+    <script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+    new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+    j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+    'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+    })(window,document,'script','dataLayer','<?= htmlspecialchars($siteSettings['google_tag_manager_id']) ?>');</script>
+    <?php endif; ?>
+
+    <!-- Google Analytics 4 & Google Ads (gtag.js) -->
+    <?php 
+    $gaId = $siteSettings['google_analytics_id'] ?? '';
+    $adsId = $siteSettings['google_ads_id'] ?? '';
+    $mainId = $gaId ?: $adsId;
+    
+    if ($mainId): 
+    ?>
+    <script async src="https://www.googletagmanager.com/gtag/js?id=<?= htmlspecialchars($mainId) ?>"></script>
+    <script>
+      window.dataLayer = window.dataLayer || [];
+      function gtag(){dataLayer.push(arguments);}
+      gtag('js', new Date());
+
+      <?php 
+      $userProps = [
+          'user_type' => $isLoggedIn ? ($_SESSION['user_role'] ?? 'customer') : 'guest',
+          'logged_in' => $isLoggedIn ? 'true' : 'false'
+      ];
+      ?>
+
+      <?php if ($gaId): ?>
+      gtag('config', '<?= htmlspecialchars($gaId) ?>', {
+          <?php if ($isLoggedIn): ?>'user_id': '<?= $_SESSION['user_id'] ?>',<?php endif; ?>
+          'user_properties': <?= json_encode($userProps) ?>
+      });
+      <?php endif; ?>
+      
+      <?php if ($adsId): ?>gtag('config', '<?= htmlspecialchars($adsId) ?>');<?php endif; ?>
+
+      // GTM Gelişmiş Dönüşümler İçin Kullanıcı Verileri
+      window.currentUserData = {
+        <?php if ($isLoggedIn && isset($currentUser)): ?>
+          email: "<?= htmlspecialchars($currentUser['email'] ?? '') ?>",
+          phone_number: "<?= htmlspecialchars($currentUser['phone'] ?? '') ?>",
+          first_name: "<?= htmlspecialchars($currentUser['first_name'] ?? '') ?>",
+          last_name: "<?= htmlspecialchars($currentUser['last_name'] ?? '') ?>",
+          street: "<?= htmlspecialchars($currentUser['address_text'] ?? '') ?>",
+          city: "<?= htmlspecialchars($currentUser['city'] ?? '') ?>",
+          region: "<?= htmlspecialchars($currentUser['district'] ?? '') ?>",
+          country: "TR"
+        <?php else: ?>
+          country: "TR" // Giriş yapmamışsa varsayılan ülke
+        <?php endif; ?>
+      };
+
+      // --- Google Ads Dinamik Yeniden Pazarlama (Remarketing) ---
+      <?php if (isset($category) && !empty($category['id'])): ?>
+        // Kategori Sayfası (Hizmet Detay)
+        gtag('event', 'view_item', {
+            'items': [{
+                'id': '<?= $category['id'] ?>',
+                'name': <?= json_encode($category['name']) ?>,
+                'category': 'Hizmetler'
+            }],
+            'dynx_itemid': '<?= $category['id'] ?>',
+            'dynx_pagetype': 'offerdetail',
+            'dynx_totalvalue': 0
+        });
+        
+        // GTM için dataLayer push (Mevcut yapıyı koruyoruz)
+        dataLayer.push({
+            'event': 'view_hizmet_kategori',
+            'kategori_adi': <?= json_encode($category['name']) ?>,
+            'kategori_id': <?= json_encode($category['id']) ?>
+        });
+
+      <?php elseif (basename($_SERVER['PHP_SELF']) == 'index.php'): ?>
+        // Anasayfa
+        gtag('event', 'page_view', {
+            'dynx_pagetype': 'home'
+        });
+      <?php else: ?>
+        // Diğer Sayfalar
+        gtag('event', 'page_view', {
+            'dynx_pagetype': 'other'
+        });
+      <?php endif; ?>
+
+      <?php 
+      // Session tabanlı tek seferlik olaylar (Login, Sign Up vb.)
+      if (isset($_SESSION['ga_event'])) {
+          echo "gtag('event', '" . $_SESSION['ga_event']['name'] . "', " . json_encode($_SESSION['ga_event']['params']) . ");";
+          unset($_SESSION['ga_event']);
+      }
+      ?>
+    </script>
+    <?php endif; ?>
+
     <?php if (isset($category) && !empty($category['tracking_code_head'])): ?>
         <?= $category['tracking_code_head'] ?>
     <?php endif; ?>
 </head>
 <body class="bg-background-light dark:bg-background-dark text-slate-900 dark:text-slate-100 transition-colors duration-200">
+    <!-- Google Tag Manager (noscript) -->
+    <?php if (!empty($siteSettings['google_tag_manager_id'])): ?>
+    <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=<?= htmlspecialchars($siteSettings['google_tag_manager_id']) ?>"
+    height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+    <?php endif; ?>
+
 <?php if (isset($category) && !empty($category['tracking_code_body'])): ?>
     <?= $category['tracking_code_body'] ?>
 <?php endif; ?>
@@ -323,9 +453,19 @@ if (isset($pdo)) {
                         } elseif ($item['visibility'] === 'provider' && $isLoggedIn && $userRole === 'provider') {
                             $show = true;
                         }
+
+                        // Aktif sayfa kontrolü
+                        $isActive = false;
+                        if (!empty($item['url'])) {
+                            $currentScript = basename($_SERVER['PHP_SELF']);
+                            $menuScript = basename(parse_url($item['url'], PHP_URL_PATH));
+                            if ($currentScript === $menuScript) {
+                                $isActive = true;
+                            }
+                        }
                     ?>
                     <?php if ($show): ?>
-                        <a class="text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors" href="<?= $pathPrefix . htmlspecialchars($item['url']) ?>" target="<?= htmlspecialchars($item['target']) ?>"><?= htmlspecialchars($item['title']) ?></a>
+                        <a class="text-sm font-bold <?= $isActive ? 'text-primary dark:text-accent border-[#1a2a6b]' : 'text-slate-700 dark:text-slate-300 border-transparent' ?> hover:text-primary dark:hover:text-accent transition-all border-b-2 hover:border-[#1a2a6b]" href="<?= $pathPrefix . htmlspecialchars($item['url']) ?>" target="<?= htmlspecialchars($item['target']) ?>"><?= htmlspecialchars($item['title']) ?></a>
                     <?php endif; ?>
                 <?php endforeach; ?>
             </nav>
@@ -339,8 +479,8 @@ if (isset($pdo)) {
                         <?php endif; ?>
                     </a>
                     <!-- Bildirimler -->
-                    <div class="relative group mr-2">
-                        <button class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors">
+                    <div class="relative mr-2">
+                        <button onclick="toggleDropdown(event, 'notification-dropdown')" class="relative p-2 text-slate-600 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors">
                             <span class="material-symbols-outlined text-2xl">notifications</span>
                             <?php if (isset($unreadNotificationCount) && $unreadNotificationCount > 0): ?>
                                 <span class="absolute top-1 right-1 w-4 h-4 bg-red-500 text-white text-[9px] font-bold flex items-center justify-center rounded-full border-2 border-white dark:border-slate-900 notification-badge"><?= $unreadNotificationCount ?></span>
@@ -348,7 +488,7 @@ if (isset($pdo)) {
                         </button>
                         
                         <!-- Dropdown -->
-                        <div class="absolute right-0 top-full pt-2 w-80 hidden group-hover:block z-50">
+                        <div id="notification-dropdown" class="absolute right-0 top-full pt-2 w-80 hidden z-50">
                             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                                 <div class="p-3 border-b border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 flex justify-between items-center">
                                     <h4 class="font-bold text-slate-800 dark:text-white text-sm">Bildirimler</h4>
@@ -418,25 +558,48 @@ if (isset($pdo)) {
                         </div>
                     </div>
 
-                    <div class="relative group">
-                        <button class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors py-2">
+                    <div class="relative">
+                        <button onclick="toggleDropdown(event, 'profile-dropdown')" class="flex items-center gap-2 text-sm font-bold text-slate-700 dark:text-slate-300 hover:text-primary dark:hover:text-accent transition-colors py-2">
                             <?php if (!empty($_SESSION['user_avatar'])): ?>
-                                <img src="<?= htmlspecialchars($_SESSION['user_avatar']) ?>" alt="<?= htmlspecialchars($userName) ?>" class="w-8 h-8 rounded-full object-cover border border-slate-200">
+                                <?php 
+                                    $avatarSrc = $_SESSION['user_avatar'];
+                                    if (!filter_var($avatarSrc, FILTER_VALIDATE_URL)) {
+                                        $avatarSrc = $pathPrefix . $avatarSrc;
+                                    }
+                                ?>
+                                <img src="<?= htmlspecialchars($avatarSrc) ?>" alt="<?= htmlspecialchars($userName) ?>" class="w-8 h-8 rounded-full object-cover border border-slate-200">
                             <?php else: ?>
                                 <span class="material-symbols-outlined text-2xl">account_circle</span>
                             <?php endif; ?>
-                            <span><?= htmlspecialchars($userName) ?></span>
-                            <span class="material-symbols-outlined text-sm">expand_more</span>
+                            <span class="hidden md:inline"><?= htmlspecialchars($userName) ?></span>
+                            <span class="material-symbols-outlined text-sm hidden md:inline">expand_more</span>
                         </button>
                         <!-- Dropdown -->
-                        <div class="absolute right-0 top-full pt-2 w-48 hidden group-hover:block z-50">
+                        <div id="profile-dropdown" class="absolute right-0 top-full pt-2 w-48 hidden z-50">
                             <div class="bg-white dark:bg-slate-800 rounded-xl shadow-xl border border-slate-100 dark:border-slate-700 overflow-hidden">
                             <ul class="py-2">
                                 <?php if (isset($_SESSION['user_role']) && $_SESSION['user_role'] === 'provider'): ?>
                                     <li><a href="<?= $pathPrefix ?>provider/won-jobs.php" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Kazandığım İşler</a></li>
+                                <?php else: ?>
+                                    <li>
+                                        <a href="<?= $pathPrefix ?>my-demands.php" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                            <span class="material-symbols-outlined text-lg">format_list_bulleted</span>
+                                            Tekliflerim
+                                        </a>
+                                    </li>
                                 <?php endif; ?>
-                                <li><a href="<?= $pathPrefix ?>profile.php" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">Profilim</a></li>
-                                <li><a href="<?= $pathPrefix ?>logout.php" class="block px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">Çıkış Yap</a></li>
+                                <li>
+                                    <a href="<?= $pathPrefix ?>profile.php" class="flex items-center gap-2 px-4 py-2 text-sm text-slate-700 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-700">
+                                        <span class="material-symbols-outlined text-lg">person</span>
+                                        Profilim
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="<?= $pathPrefix ?>logout.php" class="flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20">
+                                        <span class="material-symbols-outlined text-lg">logout</span>
+                                        Çıkış Yap
+                                    </a>
+                                </li>
                             </ul>
                             </div>
                         </div>
@@ -586,4 +749,43 @@ if (isset($pdo)) {
             }
         }
     });
+
+    // Dropdown Toggle Logic
+    window.toggleDropdown = function(event, dropdownId) {
+        event.stopPropagation();
+        const dropdown = document.getElementById(dropdownId);
+        const isHidden = dropdown.classList.contains('hidden');
+        
+        // Tüm dropdownları kapat
+        document.querySelectorAll('[id$="-dropdown"]').forEach(el => el.classList.add('hidden'));
+        
+        // Tıklananı aç/kapat
+        if (isHidden) {
+            dropdown.classList.remove('hidden');
+        }
+    };
+
+    // Dışarı tıklayınca dropdownları kapat
+    document.addEventListener('click', () => {
+        document.querySelectorAll('[id$="-dropdown"]').forEach(el => el.classList.add('hidden'));
+    });
+
+    // Sekmeler Arası Oturum Senkronizasyonu
+    window.addEventListener('storage', function(event) {
+        if (event.key === 'login_status') {
+            // Başka bir sekmede oturum durumu değiştiyse sayfayı yenile
+            window.location.reload();
+        }
+    });
+
+    // Mevcut oturum durumunu localStorage'a yaz
+    <?php if ($isLoggedIn): ?>
+        if (!localStorage.getItem('login_status')) {
+            localStorage.setItem('login_status', '<?= time() ?>');
+        }
+    <?php else: ?>
+        if (localStorage.getItem('login_status')) {
+            localStorage.removeItem('login_status');
+        }
+    <?php endif; ?>
 </script>

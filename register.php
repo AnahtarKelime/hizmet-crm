@@ -86,6 +86,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['user_name'] = $firstName . ' ' . $lastName;
                 $_SESSION['user_role'] = $roleInput;
 
+                // GA4 Sign Up Event
+                $_SESSION['ga_event'] = ['name' => 'sign_up', 'params' => ['method' => 'email']];
+
                 // Eğer paket seçimiyle geldiyse ödeme sayfasına yönlendir
                 if ($roleInput === 'provider' && $selectedPackageId) {
                     header("Location: provider/process-payment.php?package_id=" . $selectedPackageId);

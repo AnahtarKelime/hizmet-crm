@@ -30,9 +30,12 @@ $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $phone = trim($_POST['phone'] ?? '');
+    $cleanPhone = preg_replace('/[^0-9]/', '', $phone);
 
     if (empty($phone)) {
         $error = 'Lütfen tüm alanları doldurun.';
+    } elseif (strlen($cleanPhone) !== 11 || substr($cleanPhone, 0, 2) !== '05') {
+        $error = 'Lütfen geçerli bir cep telefonu numarası girin (Örn: 05XX XXX XX XX).';
     } else {
         try {
             $stmt = $pdo->prepare("UPDATE users SET phone = ? WHERE id = ?");
@@ -76,7 +79,7 @@ require_once 'includes/header.php';
             <div class="space-y-4 rounded-md shadow-sm">
                 <div>
                     <label class="block text-sm font-medium text-slate-700 mb-1">Telefon Numarası</label>
-                    <input name="phone" id="phoneInput" type="tel" required class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="(05XX) XXX XX XX" value="<?= htmlspecialchars($user['phone'] ?? '') ?>">
+                    <input name="phone" id="phoneInput" type="tel" required class="block w-full rounded-xl border-slate-200 px-4 py-3 text-slate-900 focus:border-primary focus:ring-primary sm:text-sm" placeholder="(05XX) XXX XX XX" maxlength="17" value="<?= htmlspecialchars($user['phone'] ?? '') ?>">
                 </div>
             </div>
 
@@ -94,8 +97,21 @@ require_once 'includes/header.php';
     const phoneInput = document.getElementById('phoneInput');
     if (phoneInput) {
         phoneInput.addEventListener('input', function (e) {
-            var x = e.target.value.replace(/\D/g, '').match(/(\d{0,4})(\d{0,3})(\d{0,2})(\d{0,2})/);
-            e.target.value = !x[2] ? x[1] : '(' + x[1] + ') ' + x[2] + (x[3] ? ' ' + x[3] : '') + (x[4] ? ' ' + x[4] : '');
+            let value = e.target.value.replace(/\D/g, '');
+            
+            // 0 ile başlamıyorsa ekle
+            if (value.length > 0 && value[0] !== '0') {
+                value = '0' + value;
+            }
+            if (value.length > 11) value = value.substring(0, 11);
+
+            let formatted = '';
+            if (value.length > 0) formatted += '(' + value.substring(0, 4);
+            if (value.length > 4) formatted += ') ' + value.substring(4, 7);
+            if (value.length > 7) formatted += ' ' + value.substring(7, 9);
+            if (value.length > 9) formatted += ' ' + value.substring(9, 11);
+
+            e.target.value = formatted;
         });
     }
 </script>

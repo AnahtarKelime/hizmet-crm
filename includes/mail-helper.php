@@ -87,9 +87,14 @@ function sendEmail($to, $templateKey, $placeholders = [], &$errorInfo = null) {
     $emailAccentColor = $settings['theme_color_accent'] ?? '#fbbd23';
 
     // Şablonu Çek
-    $stmt = $pdo->prepare("SELECT subject, body FROM email_templates WHERE template_key = ?");
-    $stmt->execute([$templateKey]);
-    $template = $stmt->fetch();
+    try {
+        $stmt = $pdo->prepare("SELECT subject, body FROM email_templates WHERE template_key = ?");
+        $stmt->execute([$templateKey]);
+        $template = $stmt->fetch();
+    } catch (Exception $e) {
+        $errorInfo = "Veritabanı hatası (Şablon çekilemedi): " . $e->getMessage();
+        return false;
+    }
 
     if (!$template) {
         $errorInfo = "Şablon veritabanında bulunamadı: " . htmlspecialchars($templateKey);

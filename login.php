@@ -64,6 +64,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 setcookie('remember_token', $token, time() + (86400 * 30), '/', '', false, true);
             }
 
+            // GA4 Login Event
+            $_SESSION['ga_event'] = ['name' => 'login', 'params' => ['method' => 'email']];
+
+            // Diğer sekmeleri tetiklemek için localStorage güncellemesi (Header'daki JS yakalayacak)
+            echo "<script>
+                localStorage.setItem('login_status', '" . time() . "');
+                window.location.href = '" . ($redirectUrl ? $redirectUrl : 'index.php') . "';
+            </script>";
+
             if ($redirectUrl) {
                 header("Location: " . $redirectUrl);
                 exit;

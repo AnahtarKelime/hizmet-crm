@@ -65,13 +65,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['new_file'])) {
 
     $fileTmpPath = $_FILES['new_file']['tmp_name'];
     $fileName = $_FILES['new_file']['name'];
+    $fileSize = $_FILES['new_file']['size'];
     
     // Güvenlik: Dosya uzantısı kontrolü
     $fileNameCmps = explode(".", $fileName);
     $fileExtension = strtolower(end($fileNameCmps));
     $allowedfileExtensions = array('jpg', 'gif', 'png', 'jpeg', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt', 'zip');
     
-    if (in_array($fileExtension, $allowedfileExtensions)) {
+    if ($fileSize > 10485760) {
+        $errorMsg = "Dosya boyutu 10MB'dan büyük olamaz.";
+    } elseif (in_array($fileExtension, $allowedfileExtensions)) {
         $newFileName = uniqid('upload_', true) . '.' . $fileExtension;
         $dest_path = $targetDir . $newFileName;
 

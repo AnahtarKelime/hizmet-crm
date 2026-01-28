@@ -50,7 +50,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['toggle_archive'])) {
 $stmt = $pdo->prepare("
     SELECT 
         d.*, 
-        u.first_name, u.last_name, u.email, u.phone,
+        u.first_name, u.last_name, u.email, u.phone, u.whatsapp,
         c.name as category_name, 
         l.city, l.district, l.neighborhood 
     FROM demands d
@@ -72,7 +72,8 @@ if (!$demand) {
 $stmt = $pdo->prepare("
     SELECT 
         da.answer_text, 
-        cq.question_text 
+        cq.question_text,
+        cq.input_type
     FROM demand_answers da
     LEFT JOIN category_questions cq ON da.question_id = cq.id
     WHERE da.demand_id = ?
@@ -109,6 +110,10 @@ foreach ($answers as $ans) {
             <p class="text-slate-500 text-sm"><?= htmlspecialchars($demand['title']) ?></p>
         </div>
     </div>
+    <a href="print-demand.php?id=<?= $demand['id'] ?>" target="_blank" class="bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition-colors shadow-sm">
+        <span class="material-symbols-outlined">print</span>
+        Sözleşme / PDF Yazdır
+    </a>
 </div>
 
 <?php if (isset($successMsg)): ?>
@@ -144,7 +149,22 @@ foreach ($answers as $ans) {
                 <div>
                     <span class="block text-slate-500">Müşteri</span>
                     <span class="font-medium text-slate-800"><?= htmlspecialchars($demand['first_name'] . ' ' . $demand['last_name']) ?></span>
-                    <div class="text-xs text-slate-400"><?= htmlspecialchars($demand['phone']) ?></div>
+                    <div class="flex items-center gap-2 mt-1">
+                        <div class="text-xs text-slate-400"><?= htmlspecialchars($demand['phone']) ?></div>
+                        <?php 
+                        $rawPhone = preg_replace('/[^0-9]/', '', $demand['phone']);
+                        if (strlen($rawPhone) > 10) $rawPhone = substr($rawPhone, -10);
+                        
+                        $waNumber = !empty($demand['whatsapp']) ? preg_replace('/[^0-9]/', '', $demand['whatsapp']) : $rawPhone;
+                        if (strlen($waNumber) > 10) $waNumber = substr($waNumber, -10);
+                        
+                        if (strlen($waNumber) === 10): 
+                        ?>
+                        <a href="https://wa.me/90<?= $waNumber ?>" target="_blank" class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-100 text-green-600 hover:bg-green-600 hover:text-white transition-all" title="WhatsApp ile İletişime Geç">
+                            <svg class="w-3 h-3 fill-current" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.536 0 1.52 1.115 2.988 1.264 3.186.149.198 2.19 3.361 5.27 4.713 2.179.957 3.039.768 4.117.669 1.186-.109 2.592-1.057 2.964-2.077.372-1.019.372-1.893.26-2.077-.112-.184-.411-.298-.709-.447zM12 21.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.83.51-3.54 1.39-5.02L2.5 2.5l5.16 1.18c1.42-.8 3.06-1.26 4.84-1.26 5.385 0 9.75 4.365 9.75 9.75s-4.365 9.75-9.75 9.75z"/></svg>
+                        </a>
+                        <?php endif; ?>
+                    </div>
                 </div>
             </div>
 
@@ -164,7 +184,18 @@ foreach ($answers as $ans) {
                         <?php foreach ($textAnswers as $ans): ?>
                         <div>
                             <p class="text-xs text-slate-500 font-bold"><?= htmlspecialchars($ans['question_text']) ?></p>
-                            <p class="text-sm text-slate-700"><?= htmlspecialchars($ans['answer_text']) ?></p>
+                            <?php if (isset($ans['input_type']) && $ans['input_type'] === 'image'): ?>
+                                <div class="mt-2">
+                                    <a href="../<?= htmlspecialchars($ans['answer_text']) ?>" target="_blank" class="block w-32 h-32 rounded-lg overflow-hidden border border-slate-200 relative group">
+                                        <img src="../<?= htmlspecialchars($ans['answer_text']) ?>" class="w-full h-full object-cover">
+                                        <div class="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <span class="material-symbols-outlined text-white">visibility</span>
+                                        </div>
+                                    </a>
+                                </div>
+                            <?php else: ?>
+                                <p class="text-sm text-slate-700"><?= htmlspecialchars($ans['answer_text']) ?></p>
+                            <?php endif; ?>
                         </div>
                         <?php endforeach; ?>
                     <?php endif; ?>

@@ -162,10 +162,16 @@ if (isset($pdo)) {
                 <span class="material-symbols-outlined">subdirectory_arrow_right</span>
                 Alt Kategoriler
             </a>
-            <a href="questions.php" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'question') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+            <a href="questions.php" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= ($currentPage == 'questions.php') ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <div class="flex items-center gap-3 truncate">
                     <span class="material-symbols-outlined">quiz</span>
                     <span>Dinamik Sorular</span>
+                </div>
+            </a>
+            <a href="question-types.php" class="flex items-center justify-between gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= ($currentPage == 'question-types.php') ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <div class="flex items-center gap-3 truncate">
+                    <span class="material-symbols-outlined">extension</span>
+                    <span>Soru Tipleri</span>
                 </div>
             </a>
             
@@ -302,12 +308,28 @@ if (isset($pdo)) {
                 Duyurular
             </a>
 
+            <!-- Bildirimler -->
+            <div class="pt-4 pb-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Bildirimler</div>
+
+            <a href="send-push.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'send-push.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">campaign</span>
+                Bildirim Gönder
+            </a>
+            <a href="notification-settings.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'notification-settings.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">settings_alert</span>
+                Bildirim Ayarları
+            </a>
+
             <!-- Site Ayarları -->
             <div class="pt-4 pb-2 px-3 text-xs font-bold text-slate-500 uppercase tracking-wider">Site Ayarları</div>
 
             <a href="settings.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'settings.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">settings</span>
                 Genel Ayarlar
+            </a>
+            <a href="google-services.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'google-services.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">public</span>
+                Google Servisleri
             </a>
             <a href="file-manager.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= $currentPage == 'file-manager.php' ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">folder</span>
@@ -352,6 +374,15 @@ if (isset($pdo)) {
             <a href="repair-db.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'repair-db') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
                 <span class="material-symbols-outlined">build</span>
                 Veritabanı Onar
+            </a>
+            <a href="404-logs.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, '404-logs') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">link_off</span>
+                404 Logları
+                
+            </a>
+            <a href="redirects.php" class="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors <?= strpos($currentPage, 'redirects') !== false ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:bg-slate-800 hover:text-white' ?>">
+                <span class="material-symbols-outlined">directions</span>
+                Yönlendirmeler
             </a>
         </nav>
 

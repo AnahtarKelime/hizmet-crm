@@ -10,6 +10,11 @@ if (isset($_GET['delete'])) {
     exit;
 }
 
+// Sayfalama Ayarları
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
 // Filtreleme Parametreleri
 $where = [];
 $params = [];
@@ -24,15 +29,36 @@ if (isset($_GET['status']) && $_GET['status'] !== '') {
     $params[] = $_GET['status'];
 }
 
+// Toplam Sayı
+$countSql = "SELECT COUNT(*) FROM categories";
+if (!empty($where)) {
+    $countSql .= " WHERE " . implode(" AND ", $where);
+}
+$countStmt = $pdo->prepare($countSql);
+$countStmt->execute($params);
+$totalCategories = $countStmt->fetchColumn();
+$totalPages = ceil($totalCategories / $limit);
+
+// Verileri Çek
 $sql = "SELECT * FROM categories";
 if (!empty($where)) {
     $sql .= " WHERE " . implode(" AND ", $where);
 }
-$sql .= " ORDER BY id DESC";
 
-$stmt = $pdo->prepare($sql);
-$stmt->execute($params);
-$categories = $stmt->fetchAll();
+// Sıralama sütunu hatasına karşı önlem (Try-Catch)
+try {
+    $sqlWithSort = $sql . " ORDER BY sort_order ASC, id DESC LIMIT $limit OFFSET $offset";
+    $stmt = $pdo->prepare($sqlWithSort);
+    $stmt->execute($params);
+    $categories = $stmt->fetchAll();
+} catch (PDOException $e) {
+    // Eğer sort_order yoksa varsayılan sıralamaya dön
+    $sqlFallback = $sql . " ORDER BY id DESC LIMIT $limit OFFSET $offset";
+    $stmt = $pdo->prepare($sqlFallback);
+    $stmt->execute($params);
+    $categories = $stmt->fetchAll();
+    $dbError = "Veritabanında 'sort_order' sütunu eksik. Lütfen <a href='repair-db.php' class='underline font-bold'>Veritabanı Onarımı</a> sayfasını ziyaret edin.";
+}
 ?>
 
 <div class="flex justify-between items-center mb-6">
@@ -45,6 +71,10 @@ $categories = $stmt->fetchAll();
         Yeni Ekle
     </a>
 </div>
+
+<?php if (isset($dbError)): ?>
+    <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6"><?= $dbError ?></div>
+<?php endif; ?>
 
 <!-- Filtreleme Alanı -->
 <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
@@ -74,6 +104,7 @@ $categories = $stmt->fetchAll();
         <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
             <tr>
                 <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4">Sıra</th>
                 <th class="px-6 py-4">İkon</th>
                 <th class="px-6 py-4">Hizmet Adı</th>
                 <th class="px-6 py-4 w-1/3">Anahtar Kelimeler (SEO)</th>
@@ -85,6 +116,7 @@ $categories = $stmt->fetchAll();
             <?php foreach($categories as $cat): ?>
             <tr class="hover:bg-slate-50 transition-colors">
                 <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $cat['id'] ?></td>
+                <td class="px-6 py-4 font-bold text-slate-600"><?= $cat['sort_order'] ?></td>
                 <td class="px-6 py-4">
                     <div class="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
                         <span class="material-symbols-outlined"><?= $cat['icon'] ?: 'category' ?></span>
@@ -108,6 +140,32 @@ $categories = $stmt->fetchAll();
             <?php endforeach; ?>
         </tbody>
     </table>
+
+    <!-- Sayfalama -->
+    <?php if ($totalPages > 1): ?>
+    <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-center">
+        <div class="flex gap-2">
+            <?php 
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $queryString = http_build_query($queryParams);
+            $baseUrl = '?' . ($queryString ? $queryString . '&' : '');
+            ?>
+            
+            <?php if ($page > 1): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors"><span class="material-symbols-outlined text-sm">chevron_left</span></a>
+            <?php endif; ?>
+            
+            <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                <a href="<?= $baseUrl ?>page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>"><?= $i ?></a>
+            <?php endfor; ?>
+
+            <?php if ($page < $totalPages): ?>
+                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors"><span class="material-symbols-outlined text-sm">chevron_right</span></a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 </div>
 
 <?php require_once 'includes/footer.php'; ?>

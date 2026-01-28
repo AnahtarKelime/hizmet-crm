@@ -33,27 +33,63 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 10; // Sayfa başına gösterilecek talep sayısı
 $offset = ($page - 1) * $limit;
 
-// Toplam Talep Sayısı
-$totalStmt = $pdo->query("SELECT COUNT(*) FROM demands");
+// Filtreleme Parametreleri
+$where = [];
+$params = [];
+
+// Arama (Kullanıcı Adı, Soyadı, Kategori veya Başlık)
+if (!empty($_GET['search'])) {
+    $search = "%" . $_GET['search'] . "%";
+    $where[] = "(u.first_name LIKE ? OR u.last_name LIKE ? OR c.name LIKE ? OR d.title LIKE ?)";
+    $params[] = $search;
+    $params[] = $search;
+    $params[] = $search;
+    $params[] = $search;
+}
+
+// Durum Filtresi
+if (!empty($_GET['status'])) {
+    $where[] = "d.status = ?";
+    $params[] = $_GET['status'];
+}
+
+$whereClause = "";
+if (!empty($where)) {
+    $whereClause = " WHERE " . implode(" AND ", $where);
+}
+
+// Toplam Talep Sayısı (Filtreli)
+$countSql = "SELECT COUNT(*) FROM demands d 
+             LEFT JOIN users u ON d.user_id = u.id 
+             LEFT JOIN categories c ON d.category_id = c.id 
+             $whereClause";
+$totalStmt = $pdo->prepare($countSql);
+$totalStmt->execute($params);
 $totalDemands = $totalStmt->fetchColumn();
 $totalPages = ceil($totalDemands / $limit);
 
-// Talepleri Çek
-$stmt = $pdo->prepare("
+// Talepleri Çek (Filtreli)
+$sql = "
     SELECT 
         d.*, 
-        u.first_name, u.last_name, 
+        u.first_name, u.last_name, u.phone, u.whatsapp, u.is_verified,
         c.name as category_name, 
         l.city, l.district 
     FROM demands d
     LEFT JOIN users u ON d.user_id = u.id
     LEFT JOIN categories c ON d.category_id = c.id
     LEFT JOIN locations l ON d.location_id = l.id
+    $whereClause
     ORDER BY d.created_at DESC
-    LIMIT :limit OFFSET :offset
-");
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+    LIMIT ? OFFSET ?
+";
+
+$stmt = $pdo->prepare($sql);
+foreach ($params as $i => $val) {
+    $stmt->bindValue($i + 1, $val);
+}
+$stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+$stmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
 $stmt->execute();
 $demands = $stmt->fetchAll();
 ?>
@@ -74,6 +110,31 @@ $demands = $stmt->fetchAll();
     </div>
 <?php endif; ?>
 
+<!-- Filtreleme Alanı -->
+<div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Arama</label>
+            <input type="text" name="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Kullanıcı, Kategori veya Başlık...">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Durum</label>
+            <select name="status" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="">Tümü</option>
+                <option value="pending" <?= ($_GET['status'] ?? '') === 'pending' ? 'selected' : '' ?>>Beklemede</option>
+                <option value="approved" <?= ($_GET['status'] ?? '') === 'approved' ? 'selected' : '' ?>>Onaylandı</option>
+                <option value="completed" <?= ($_GET['status'] ?? '') === 'completed' ? 'selected' : '' ?>>Tamamlandı</option>
+                <option value="cancelled" <?= ($_GET['status'] ?? '') === 'cancelled' ? 'selected' : '' ?>>İptal</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-lg">filter_list</span> Filtrele
+            </button>
+        </div>
+    </form>
+</div>
+
 <form method="POST" id="bulkActionForm">
     <?php if (!empty($demands)): ?>
     <div class="flex gap-2 justify-end mb-4">
@@ -87,18 +148,19 @@ $demands = $stmt->fetchAll();
     <?php endif; ?>
 
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
+    <div class="overflow-x-auto">
     <table class="w-full text-left text-sm text-slate-600">
         <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
             <tr>
                 <th class="px-6 py-4 w-10">
                     <input type="checkbox" id="selectAll" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
                 </th>
-                <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4 hidden md:table-cell">ID</th>
                 <th class="px-6 py-4">Başlık</th>
                 <th class="px-6 py-4">Kullanıcı</th>
-                <th class="px-6 py-4">Kategori</th>
-                <th class="px-6 py-4">Lokasyon</th>
-                <th class="px-6 py-4">Tarih</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Kategori</th>
+                <th class="px-6 py-4 hidden xl:table-cell">Lokasyon</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Tarih</th>
                 <th class="px-6 py-4">Durum</th>
                 <th class="px-6 py-4 text-right">İşlemler</th>
             </tr>
@@ -110,23 +172,42 @@ $demands = $stmt->fetchAll();
                 </tr>
             <?php else: ?>
                 <?php foreach($demands as $demand): ?>
-                <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4">
+                <tr class="hover:bg-slate-50 transition-colors cursor-pointer" onclick="window.location='demand-details.php?id=<?= $demand['id'] ?>'">
+                    <td class="px-6 py-4" onclick="event.stopPropagation()">
                         <input type="checkbox" name="selected_ids[]" value="<?= $demand['id'] ?>" class="demand-checkbox rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 w-4 h-4">
                     </td>
-                    <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $demand['id'] ?></td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $demand['id'] ?></td>
                     <td class="px-6 py-4 font-medium text-slate-800">
                         <?= htmlspecialchars($demand['title']) ?>
                     </td>
                     <td class="px-6 py-4">
-                        <?= htmlspecialchars($demand['first_name'] . ' ' . $demand['last_name']) ?>
+                        <div class="font-bold text-slate-700 whitespace-nowrap flex items-center gap-2">
+                            <?= htmlspecialchars($demand['first_name'] . ' ' . $demand['last_name']) ?>
+                            <?php if (isset($demand['is_verified']) && $demand['is_verified'] == 0): ?>
+                                <span class="bg-orange-100 text-orange-700 text-[10px] px-1.5 py-0.5 rounded border border-orange-200 flex items-center gap-0.5" title="Misafir / Doğrulanmamış Kullanıcı">
+                                    <span class="material-symbols-outlined text-[12px]">person_alert</span> Misafir
+                                </span>
+                            <?php endif; ?>
+                        </div>
+                        <?php if (!empty($demand['phone'])): 
+                            $rawPhone = preg_replace('/[^0-9]/', '', $demand['phone']);
+                            if (strlen($rawPhone) > 10) $rawPhone = substr($rawPhone, -10);
+                            
+                            $formattedPhone = (strlen($rawPhone) === 10) 
+                                ? '0' . substr($rawPhone, 0, 3) . ' ' . substr($rawPhone, 3, 3) . ' ' . substr($rawPhone, 6, 2) . ' ' . substr($rawPhone, 8, 2)
+                                : $demand['phone'];
+                        ?>
+                        <div class="flex flex-wrap items-center gap-2 mt-1">
+                            <a href="tel:<?= $rawPhone ?>" onclick="event.stopPropagation()" class="text-xs text-slate-500 hover:text-indigo-600 font-mono whitespace-nowrap transition-colors"><?= htmlspecialchars($formattedPhone) ?></a>
+                        </div>
+                        <?php endif; ?>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 hidden lg:table-cell">
                         <span class="px-2 py-1 bg-indigo-50 text-indigo-700 rounded text-xs font-bold">
                             <?= htmlspecialchars($demand['category_name']) ?>
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-xs">
+                    <td class="px-6 py-4 text-xs hidden xl:table-cell">
                         <?php 
                         $locationText = !empty($demand['address_text']) ? $demand['address_text'] : ($demand['city'] . ' / ' . $demand['district']);
                         ?>
@@ -134,7 +215,7 @@ $demands = $stmt->fetchAll();
                             <?= htmlspecialchars($locationText) ?>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-xs text-slate-500">
+                    <td class="px-6 py-4 text-xs text-slate-500 hidden lg:table-cell">
                         <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
                     </td>
                     <td class="px-6 py-4">
@@ -166,25 +247,34 @@ $demands = $stmt->fetchAll();
             <?php endif; ?>
         </tbody>
     </table>
+    </div>
     
     <!-- Sayfalama -->
     <?php if ($totalPages > 1): ?>
     <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-center">
         <div class="flex gap-2">
+            <?php 
+            // Mevcut query string'i koru (page hariç)
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $queryString = http_build_query($queryParams);
+            $baseUrl = '?' . ($queryString ? $queryString . '&' : '');
+            ?>
+            
             <?php if ($page > 1): ?>
-                <a href="?page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">chevron_left</span>
                 </a>
             <?php endif; ?>
             
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a href="?page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
+                <a href="<?= $baseUrl ?>page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
                     <?= $i ?>
                 </a>
             <?php endfor; ?>
 
             <?php if ($page < $totalPages): ?>
-                <a href="?page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                 </a>
             <?php endif; ?>

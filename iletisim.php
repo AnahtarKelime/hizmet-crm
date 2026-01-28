@@ -64,7 +64,7 @@ require_once 'includes/header.php';
                         </div>
                         <div>
                             <h4 class="font-bold text-slate-800 dark:text-white">E-posta</h4>
-                            <p class="text-slate-600 dark:text-slate-400"><?= htmlspecialchars($settings['contact_email'] ?? 'destek@iyiteklif.com') ?></p>
+                            <p class="text-slate-600 dark:text-slate-400"><?= htmlspecialchars($settings['contact_email'] ?? 'destek@iyiteklif.com.tr') ?></p>
                         </div>
                     </div>
                     <div class="flex items-start gap-4">

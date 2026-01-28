@@ -67,6 +67,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
           PRIMARY KEY (`id`)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
 
+        "CREATE TABLE IF NOT EXISTS `404_logs` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `url` varchar(255) NOT NULL,
+          `hit_count` int(11) DEFAULT 1,
+          `last_hit_at` timestamp DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `url` (`url`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
+        "CREATE TABLE IF NOT EXISTS `redirects` (
+          `id` int(11) NOT NULL AUTO_INCREMENT,
+          `source_url` varchar(255) NOT NULL,
+          `target_url` varchar(255) NOT NULL,
+          `status_code` int(3) DEFAULT 302,
+          `created_at` timestamp DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (`id`),
+          UNIQUE KEY `source_url` (`source_url`)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;",
+
         // Settings tablosu için unique index (Eğer yoksa)
         // Not: Bu işlem mevcut duplicate kayıtlar varsa hata verebilir, bu yüzden IGNORE kullanıyoruz veya manuel temizlik gerekebilir.
         // Ancak basit bir ALTER TABLE komutu yeterli olacaktır.
@@ -93,6 +112,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
         // $logs[] = "<div class='text-yellow-600'>Settings index uyarısı: " . $e->getMessage() . "</div>";
     }
 
+    // category_questions tablosundaki input_type sütununu güncelle (ENUM kısıtlamasını kaldırmak için)
+    try {
+        $pdo->exec("ALTER TABLE category_questions MODIFY COLUMN input_type VARCHAR(50) NOT NULL DEFAULT 'text'");
+        $logs[] = "<div class='flex items-center gap-2 text-green-600 bg-green-50 p-2 rounded border border-green-100 mb-2'><span class='material-symbols-outlined'>check_circle</span> Soru tipleri veritabanı yapısı güncellendi.</div>";
+    } catch (PDOException $e) {
+        // Tablo yoksa veya hata varsa sessiz geç
+    }
+
     // 2. Eksik Sütunları Kontrol Et ve Ekle
     $columnsToCheck = [
         ['offers', 'is_read', 'TINYINT(1) DEFAULT 0'],
@@ -109,6 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
         ['users', 'address_text', 'VARCHAR(255) DEFAULT NULL'],
         ['users', 'latitude', 'DECIMAL(10,8) DEFAULT NULL'],
         ['users', 'longitude', 'DECIMAL(11,8) DEFAULT NULL'],
+        ['users', 'whatsapp', 'VARCHAR(20) DEFAULT NULL'],
         ['provider_details', 'application_status', "ENUM('none','pending','approved','rejected','incomplete') DEFAULT 'none'"],
         ['provider_details', 'subscription_type', "ENUM('free','premium') DEFAULT 'free'"],
         ['provider_details', 'remaining_offer_credit', "INT(11) DEFAULT 0"],
@@ -117,11 +145,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
         ['provider_details', 'address_text', "VARCHAR(255) DEFAULT NULL"],
         ['categories', 'tracking_code_head', 'TEXT DEFAULT NULL'],
         ['categories', 'tracking_code_body', 'TEXT DEFAULT NULL'],
+        ['categories', 'sort_order', 'INT(11) DEFAULT 0'],
+        ['categories', 'is_location_required', 'TINYINT(1) DEFAULT 1'],
+        ['categories', 'seo_title', 'VARCHAR(255) DEFAULT NULL'],
+        ['categories', 'seo_description', 'VARCHAR(255) DEFAULT NULL'],
         ['contact_messages', 'is_read', 'TINYINT(1) DEFAULT 0'],
         ['reviews', 'is_approved', 'TINYINT(1) DEFAULT 0'],
         ['reviews', 'criteria_ratings', 'JSON DEFAULT NULL'],
         ['menu_items', 'parent_id', 'INT(11) DEFAULT NULL'],
         ['menu_items', 'icon', 'VARCHAR(50) DEFAULT NULL'],
+        ['users', 'reset_token', 'VARCHAR(64) DEFAULT NULL'],
+        ['users', 'reset_token_expires_at', 'DATETIME DEFAULT NULL'],
     ];
 
     foreach ($columnsToCheck as $col) {
@@ -137,6 +171,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
             'subject' => 'Talebiniz Alındı ve Onaylandı',
             'body' => '<p>Merhaba <strong>{name}</strong>,</p><p>"{demand_title}" başlıklı hizmet talebiniz başarıyla oluşturuldu ve sistem tarafından otomatik olarak onaylandı.</p><p>İlgili hizmet verenlere bildirim gönderildi. Teklifler gelmeye başladığında sizi bilgilendireceğiz.</p><p><a href="{link}" style="background-color: #1a2a6c; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Talebini Görüntüle</a></p>',
             'variables' => 'name, demand_title, link'
+        ],
+        [
+            'key' => 'guest_welcome',
+            'name' => 'Misafir Hoşgeldin (Şifre Oluşturma)',
+            'subject' => 'Hoşgeldiniz! Hesabınızı Tamamlayın',
+            'body' => '<p>Merhaba <strong>{name}</strong>,</p><p>Hizmet talebiniz başarıyla alındı. İşlemlerinizi takip etmek, gelen teklifleri değerlendirmek ve hesabınıza tekrar erişebilmek için lütfen aşağıdaki bağlantıya tıklayarak şifrenizi oluşturun:</p><p style="text-align: center; margin: 30px 0;"><a href="{link}" style="background-color: #1a2a6c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Şifremi Oluştur</a></p><p>Bu bağlantı 24 saat süreyle geçerlidir.</p>',
+            'variables' => 'name, link'
+        ],
+        [
+            'key' => 'password_reset',
+            'name' => 'Şifre Sıfırlama',
+            'subject' => 'Şifre Sıfırlama Talebi',
+            'body' => '<p>Merhaba <strong>{name}</strong>,</p><p>Hesabınız için şifre sıfırlama talebinde bulundunuz.</p><p>Şifrenizi yenilemek için lütfen aşağıdaki bağlantıya tıklayın:</p><p style="text-align: center; margin: 30px 0;"><a href="{link}" style="background-color: #1a2a6c; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: bold;">Şifremi Sıfırla</a></p><p>Bu bağlantı 24 saat süreyle geçerlidir.</p><p>Bu işlemi siz yapmadıysanız, bu e-postayı görmezden gelebilirsiniz.</p>',
+            'variables' => 'name, link'
         ]
     ];
 
@@ -151,6 +199,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
     if (empty($logs)) {
         $logs[] = "<div class='flex items-center gap-2 text-green-700 bg-green-50 p-4 rounded-xl border border-green-200'><span class='material-symbols-outlined'>check_circle</span> Veritabanı yapısı güncel. Eksik tablo veya sütun bulunamadı.</div>";
     }
+
+    // PWA Icon ayarı yoksa ekle
+    $pdo->prepare("INSERT IGNORE INTO settings (setting_key, setting_value) VALUES ('pwa_icon', '')")->execute();
+}
+
+// Cache Temizleme
+if (isset($_POST['clear_cache'])) {
+    $cache->flush();
+    $logs[] = "<div class='flex items-center gap-2 text-green-600 bg-green-50 p-2 rounded border border-green-100 mb-2'><span class='material-symbols-outlined'>cleaning_services</span> Önbellek temizlendi.</div>";
 }
 ?>
 
@@ -170,6 +227,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['repair'])) {
                 <button type="submit" name="repair" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-indigo-200 flex items-center gap-2">
                     <span class="material-symbols-outlined">build</span>
                     Veritabanını Kontrol Et ve Onar
+                </button>
+                <button type="submit" name="clear_cache" class="bg-orange-600 hover:bg-orange-700 text-white font-bold py-3 px-6 rounded-xl transition-all shadow-lg shadow-orange-200 flex items-center gap-2 mt-4">
+                    <span class="material-symbols-outlined">cleaning_services</span>
+                    Önbelleği Temizle
                 </button>
             </form>
         </div>

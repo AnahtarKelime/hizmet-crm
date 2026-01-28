@@ -2,5 +2,9 @@
 session_start();
 session_destroy();
 setcookie('remember_token', '', time() - 3600, '/');
-header("Location: index.php");
-exit;
+?>
+<script>
+    localStorage.removeItem('login_status');
+    window.location.href = 'index.php';
+</script>
+<?php exit; ?>

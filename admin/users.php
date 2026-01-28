@@ -7,15 +7,44 @@ $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
 $limit = 20;
 $offset = ($page - 1) * $limit;
 
-// Toplam Kullanıcı Sayısı
-$totalStmt = $pdo->query("SELECT COUNT(*) FROM users");
+// Filtreleme Parametreleri
+$where = [];
+$params = [];
+
+if (!empty($_GET['search'])) {
+    $search = "%" . $_GET['search'] . "%";
+    $where[] = "(first_name LIKE ? OR last_name LIKE ? OR email LIKE ? OR phone LIKE ?)";
+    $params[] = $search;
+    $params[] = $search;
+    $params[] = $search;
+    $params[] = $search;
+}
+
+if (!empty($_GET['role'])) {
+    $where[] = "role = ?";
+    $params[] = $_GET['role'];
+}
+
+$whereClause = "";
+if (!empty($where)) {
+    $whereClause = " WHERE " . implode(" AND ", $where);
+}
+
+// Toplam Kullanıcı Sayısı (Filtreli)
+$countSql = "SELECT COUNT(*) FROM users" . $whereClause;
+$totalStmt = $pdo->prepare($countSql);
+$totalStmt->execute($params);
 $totalUsers = $totalStmt->fetchColumn();
 $totalPages = ceil($totalUsers / $limit);
 
-// Kullanıcıları Çek
-$stmt = $pdo->prepare("SELECT * FROM users ORDER BY id DESC LIMIT :limit OFFSET :offset");
-$stmt->bindValue(':limit', $limit, PDO::PARAM_INT);
-$stmt->bindValue(':offset', $offset, PDO::PARAM_INT);
+// Kullanıcıları Çek (Filtreli)
+$sql = "SELECT * FROM users" . $whereClause . " ORDER BY id DESC LIMIT ? OFFSET ?";
+$stmt = $pdo->prepare($sql);
+foreach ($params as $i => $val) {
+    $stmt->bindValue($i + 1, $val);
+}
+$stmt->bindValue(count($params) + 1, $limit, PDO::PARAM_INT);
+$stmt->bindValue(count($params) + 2, $offset, PDO::PARAM_INT);
 $stmt->execute();
 $users = $stmt->fetchAll();
 ?>
@@ -27,24 +56,48 @@ $users = $stmt->fetchAll();
     </div>
 </div>
 
+<!-- Filtreleme Alanı -->
+<div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 mb-6">
+    <form method="GET" class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+        <div class="md:col-span-2">
+            <label class="block text-xs font-bold text-slate-700 mb-1">Arama</label>
+            <input type="text" name="search" value="<?= htmlspecialchars($_GET['search'] ?? '') ?>" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500" placeholder="Ad, Soyad, E-posta veya Telefon...">
+        </div>
+        <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">Rol</label>
+            <select name="role" class="w-full rounded-lg border-slate-300 text-sm focus:border-indigo-500 focus:ring-indigo-500">
+                <option value="">Tümü</option>
+                <option value="customer" <?= ($_GET['role'] ?? '') === 'customer' ? 'selected' : '' ?>>Müşteri</option>
+                <option value="provider" <?= ($_GET['role'] ?? '') === 'provider' ? 'selected' : '' ?>>Hizmet Veren</option>
+                <option value="admin" <?= ($_GET['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Yönetici</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2.5 rounded-lg transition-colors text-sm flex items-center justify-center gap-2">
+                <span class="material-symbols-outlined text-lg">filter_list</span> Filtrele
+            </button>
+        </div>
+    </form>
+</div>
+
 <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden">
     <div class="overflow-x-auto">
         <table class="w-full text-left text-sm text-slate-600">
             <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
                 <tr>
-                    <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4 hidden md:table-cell">ID</th>
                     <th class="px-6 py-4">Kullanıcı</th>
                     <th class="px-6 py-4">İletişim</th>
                     <th class="px-6 py-4">Rol</th>
-                    <th class="px-6 py-4">Kayıt / Bağlantı</th>
-                    <th class="px-6 py-4">Kayıt Tarihi</th>
+                <th class="px-6 py-4 hidden xl:table-cell">Kayıt / Bağlantı</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Kayıt Tarihi</th>
                     <th class="px-6 py-4 text-right">İşlemler</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-slate-100">
                 <?php foreach($users as $user): ?>
                 <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $user['id'] ?></td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $user['id'] ?></td>
                     <td class="px-6 py-4">
                         <div class="flex items-center gap-3">
                             <?php if (!empty($user['avatar_url'])): ?>
@@ -79,7 +132,7 @@ $users = $stmt->fetchAll();
                             <span class="px-2 py-1 bg-blue-100 text-blue-700 rounded text-xs font-bold">Müşteri</span>
                         <?php endif; ?>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 hidden xl:table-cell">
                         <div class="flex items-center gap-2">
                             <?php 
                             $hasSocial = false;
@@ -102,7 +155,7 @@ $users = $stmt->fetchAll();
                             <?php endif; ?>
                         </div>
                     </td>
-                    <td class="px-6 py-4 text-sm text-slate-500">
+                    <td class="px-6 py-4 text-sm text-slate-500 hidden lg:table-cell">
                         <?= isset($user['created_at']) ? date('d.m.Y H:i', strtotime($user['created_at'])) : '-' ?>
                     </td>
                     <td class="px-6 py-4 text-right">
@@ -120,20 +173,28 @@ $users = $stmt->fetchAll();
     <?php if ($totalPages > 1): ?>
     <div class="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-center">
         <div class="flex gap-2">
+            <?php 
+            // Mevcut query string'i koru (page hariç)
+            $queryParams = $_GET;
+            unset($queryParams['page']);
+            $queryString = http_build_query($queryParams);
+            $baseUrl = '?' . ($queryString ? $queryString . '&' : '');
+            ?>
+            
             <?php if ($page > 1): ?>
-                <a href="?page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                <a href="<?= $baseUrl ?>page=<?= $page - 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">chevron_left</span>
                 </a>
             <?php endif; ?>
             
             <?php for ($i = 1; $i <= $totalPages; $i++): ?>
-                <a href="?page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
+                <a href="<?= $baseUrl ?>page=<?= $i ?>" class="w-8 h-8 flex items-center justify-center border rounded font-medium text-sm transition-colors <?= $i === $page ? 'bg-indigo-600 text-white border-indigo-600' : 'bg-white border-slate-200 text-slate-600 hover:bg-slate-100' ?>">
                     <?= $i ?>
                 </a>
             <?php endfor; ?>
 
             <?php if ($page < $totalPages): ?>
-                <a href="?page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
+                <a href="<?= $baseUrl ?>page=<?= $page + 1 ?>" class="w-8 h-8 flex items-center justify-center bg-white border border-slate-200 rounded hover:bg-slate-100 text-slate-600 transition-colors">
                     <span class="material-symbols-outlined text-sm">chevron_right</span>
                 </a>
             <?php endif; ?>

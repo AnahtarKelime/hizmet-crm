@@ -14,11 +14,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lastName = $_POST['last_name'];
         $email = $_POST['email'];
         $phone = $_POST['phone'];
+        $whatsapp = $_POST['whatsapp'] ?? null;
         $role = $_POST['role'];
         $isVerified = isset($_POST['is_verified']) ? 1 : 0;
 
-        $sql = "UPDATE users SET first_name=?, last_name=?, email=?, phone=?, role=?, is_verified=?";
-        $params = [$firstName, $lastName, $email, $phone, $role, $isVerified];
+        $sql = "UPDATE users SET first_name=?, last_name=?, email=?, phone=?, whatsapp=?, role=?, is_verified=?";
+        $params = [$firstName, $lastName, $email, $phone, $whatsapp, $role, $isVerified];
 
         // Şifre Değişikliği (Eğer girildiyse)
         if (!empty($_POST['password'])) {
@@ -201,6 +202,10 @@ $userDemands = $stmtDemands->fetchAll();
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2">Telefon</label>
                 <input type="text" name="phone" value="<?= htmlspecialchars($user['phone']) ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+            </div>
+            <div>
+                <label class="block text-sm font-bold text-slate-700 mb-2">WhatsApp</label>
+                <input type="text" name="whatsapp" value="<?= htmlspecialchars($user['whatsapp'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="05XX XXX XX XX">
             </div>
             <div>
                 <label class="block text-sm font-bold text-slate-700 mb-2">Rol</label>

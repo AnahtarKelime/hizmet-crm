@@ -56,11 +56,11 @@ try {
         <table class="w-full text-left text-sm text-slate-600">
             <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
                 <tr>
-                    <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4 hidden md:table-cell">ID</th>
                     <th class="px-6 py-4">Müşteri</th>
                     <th class="px-6 py-4">Hizmet & Lokasyon</th>
                     <th class="px-6 py-4">Başlık</th>
-                    <th class="px-6 py-4">Tarih</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Tarih</th>
                     <th class="px-6 py-4">Durum</th>
                     <th class="px-6 py-4 text-right">İşlemler</th>
                 </tr>
@@ -73,7 +73,7 @@ try {
                 <?php else: ?>
                     <?php foreach($demands as $demand): ?>
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $demand['id'] ?></td>
+                        <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $demand['id'] ?></td>
                         <td class="px-6 py-4">
                             <div class="font-bold text-slate-800"><?= htmlspecialchars($demand['first_name'] . ' ' . $demand['last_name']) ?></div>
                         </td>
@@ -82,7 +82,7 @@ try {
                             <div class="text-xs text-slate-500"><?= htmlspecialchars($demand['city'] . ' / ' . $demand['district']) ?></div>
                         </td>
                         <td class="px-6 py-4 font-medium text-slate-700"><?= htmlspecialchars($demand['title']) ?></td>
-                        <td class="px-6 py-4 text-xs text-slate-500">
+                        <td class="px-6 py-4 text-xs text-slate-500 hidden lg:table-cell">
                             <?= date('d.m.Y H:i', strtotime($demand['created_at'])) ?>
                         </td>
                         <td class="px-6 py-4">

@@ -17,6 +17,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Favicon Yükleme
         if (isset($_FILES['site_favicon_file']) && $_FILES['site_favicon_file']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['site_favicon_file']['size'] > 10485760) {
+                $errorMsg = "Favicon dosyası 10MB'dan büyük olamaz.";
+            } else {
             $uploadDir = '../uploads/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
@@ -37,6 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('site_favicon', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
                     $stmt->execute([$faviconPath, $faviconPath]);
                 }
+            }
             }
         }
 

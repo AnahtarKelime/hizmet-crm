@@ -1,6 +1,7 @@
 <?php
 require_once 'config/db.php';
 require_once 'includes/mail-helper.php';
+require_once 'includes/push-helper.php'; // Push helper eklendi
 
 // Oturumu başlat (header.php'den önce işlem yaptığımız için gerekli)
 if (session_status() === PHP_SESSION_NONE) {
@@ -59,6 +60,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'demand_title' => $offer['demand_title'],
                 'link' => getBaseUrl() . '/provider/won-jobs.php'
             ]);
+
+            // Hizmet Verene Push Bildirim Gönder
+            sendPushNotification(
+                $offer['user_id'], // Hizmet veren ID
+                'Teklifiniz Kabul Edildi! 🎉',
+                $offer['demand_title'] . ' işi için verdiğiniz teklif onaylandı.',
+                getBaseUrl() . '/offer-details.php?id=' . $offerId
+            );
 
             $successMsg = "Teklif başarıyla kabul edildi. Hizmet veren ile iletişime geçebilirsiniz.";
             // Sayfayı yenile

@@ -1,6 +1,7 @@
 <?php
 require_once 'config/db.php';
 require_once 'includes/mail-helper.php';
+require_once 'includes/push-helper.php'; // Push helper eklendi
 session_start();
 
 // Konuşmayı Silme İşlemi
@@ -45,6 +46,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
         $attachmentPath = null;
         $fileName = null;
         if (isset($_FILES['attachment']) && $_FILES['attachment']['error'] === UPLOAD_ERR_OK) {
+            if ($_FILES['attachment']['size'] > 10485760) {
+                header("Location: messages.php?offer_id=" . $offerIdPost . "&status=error&msg=file_too_large");
+                exit;
+            }
             $uploadDir = 'uploads/messages/';
             if (!is_dir($uploadDir)) {
                 mkdir($uploadDir, 0755, true);
@@ -90,6 +95,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['send_message'])) {
                 'sender_name' => $_SESSION['user_name'],
                 'link' => getBaseUrl() . '/messages.php?offer_id=' . $offerIdPost
             ]);
+
+            // Alıcıya Push Bildirim Gönder
+            sendPushNotification(
+                $receiverId,
+                'Yeni Mesaj',
+                $_SESSION['user_name'] . ' size bir mesaj gönderdi.',
+                getBaseUrl() . '/messages.php?offer_id=' . $offerIdPost
+            );
         }
 
         // Sayfayı yenile (POST tekrarını önlemek için redirect)
@@ -244,7 +257,13 @@ if ($offerId) {
     <?php if (isset($_GET['status']) && $_GET['status'] === 'deleted'): ?>
         <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mb-6">Sohbet başarıyla silindi.</div>
     <?php elseif (isset($_GET['status']) && $_GET['status'] === 'error'): ?>
-        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">İşlem sırasında bir hata oluştu veya yetkiniz yok.</div>
+        <div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative mb-6">
+            <?php if (isset($_GET['msg']) && $_GET['msg'] === 'file_too_large'): ?>
+                Yüklenen dosya 10MB'dan büyük olamaz.
+            <?php else: ?>
+                İşlem sırasında bir hata oluştu veya yetkiniz yok.
+            <?php endif; ?>
+        </div>
     <?php endif; ?>
 
 

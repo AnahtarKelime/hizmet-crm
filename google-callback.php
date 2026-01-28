@@ -102,6 +102,9 @@ if (isset($_GET['code'])) {
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['user_name'] = $user['first_name'] . ' ' . $user['last_name'];
                 $_SESSION['user_role'] = $user['role'];
+
+                // GA4 Login Event
+                $_SESSION['ga_event'] = ['name' => 'login', 'params' => ['method' => 'google']];
                 
                 // Eksik bilgi kontrolü
                 if (empty($user['phone']) || empty($user['city']) || empty($user['district'])) {

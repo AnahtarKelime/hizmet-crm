@@ -1,6 +1,6 @@
 <?php
 require_once 'config/db.php';
-$pageTitle = "Taleplerim";
+$pageTitle = "Tekliflerim";
 require_once 'includes/header.php';
 
 if (!isset($_SESSION['user_id'])) {
@@ -45,7 +45,7 @@ $demands = $stmt->fetchAll();
 
 <main class="max-w-7xl mx-auto px-4 py-12 min-h-[60vh]">
     <div class="flex justify-between items-center mb-8">
-        <h1 class="text-3xl font-black text-slate-800">Taleplerim</h1>
+        <h1 class="text-3xl font-black text-slate-800">Tekliflerim</h1>
         <a href="index.php" class="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all shadow-lg">
             Yeni Talep Oluştur
         </a>

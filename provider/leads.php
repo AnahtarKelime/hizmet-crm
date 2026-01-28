@@ -1,246 +1,259 @@
 <?php
 require_once '../config/db.php';
-session_start();
-
-// Yetki Kontrolü
-if (!isset($_SESSION['user_id']) || $_SESSION['user_role'] !== 'provider') {
-    header("Location: ../login.php");
-    exit;
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
 }
 
-// Mesafe Hesaplama Fonksiyonu (Haversine Formülü)
-function calculateDistance($lat1, $lon1, $lat2, $lon2) {
-    if (!$lat1 || !$lon1 || !$lat2 || !$lon2) return null;
-    
-    $theta = $lon1 - $lon2;
-    $dist = sin(deg2rad($lat1)) * sin(deg2rad($lat2)) +  cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * cos(deg2rad($theta));
-    $dist = acos($dist);
-    $dist = rad2deg($dist);
-    $miles = $dist * 60 * 1.1515;
-    return ($miles * 1.609344); // Kilometreye çevir
-}
-
-$userId = $_SESSION['user_id'];
-
-// 1. Hizmet Veren Bilgilerini ve Aboneliğini Çek
-$stmt = $pdo->prepare("SELECT * FROM provider_details WHERE user_id = ?");
-$stmt->execute([$userId]);
-$provider = $stmt->fetch();
-
-// Abonelik Kontrolü
-$isSubscribed = false;
-$hasCredit = false;
-if ($provider && $provider['subscription_ends_at'] && new DateTime($provider['subscription_ends_at']) > new DateTime()) {
-    $isSubscribed = true;
-    $hasCredit = ($provider['remaining_offer_credit'] > 0 || $provider['remaining_offer_credit'] == -1);
-}
-
-// 2. Hizmet Verenin Kategorilerini Çek
-$stmt = $pdo->prepare("SELECT category_id FROM provider_service_categories WHERE user_id = ? LIMIT 1");
-$stmt->execute([$userId]);
-$myCategoryId = $stmt->fetchColumn();
-
-// 3. Hizmet Verenin Bölgelerini Çek
-$stmt = $pdo->prepare("SELECT city, districts FROM provider_service_areas WHERE user_id = ? LIMIT 1");
-$stmt->execute([$userId]);
-$myArea = $stmt->fetch();
-
-// 4. Sekme ve Filtreleme Mantığı
-$activeTab = $_GET['tab'] ?? 'new'; // new, pending, accepted, rejected
-$leads = [];
-
-if ($myCategoryId && $myArea) {
-    $params = ['user_id' => $userId];
-    $sql = "";
-
-    if ($activeTab === 'new') {
-        // Sadece abonelik ve kredi varsa yeni işleri göster
-        if ($isSubscribed && $hasCredit) {
-            $sql = "SELECT d.*, c.name as category_name, l.city, l.district, l.neighborhood,
-                    (SELECT COUNT(*) FROM lead_access_logs WHERE demand_id = d.id AND user_id = :user_id) as is_viewed 
-                    FROM demands d
-                    JOIN categories c ON d.category_id = c.id
-                    JOIN locations l ON d.location_id = l.id
-                    WHERE d.is_archived = 0
-                    AND d.status = 'approved'
-                    AND d.category_id = :category_id
-                    AND l.city = :city
-                    AND d.id NOT IN (SELECT demand_id FROM offers WHERE user_id = :user_id_2)
-                    AND d.user_id != :user_id_3";
-            
-            $params['category_id'] = $myCategoryId;
-            $params['city'] = $myArea['city'];
-            $params['user_id_2'] = $userId;
-            $params['user_id_3'] = $userId;
-
-            if (!empty($myArea['districts'])) {
-                $sql .= " AND l.district = :district";
-                $params['district'] = $myArea['districts'];
-            }
-            $sql .= " ORDER BY d.created_at DESC";
-        }
-    } elseif ($activeTab === 'pending') {
-        $sql = "SELECT d.*, c.name as category_name, l.city, l.district, l.neighborhood, o.price as my_offer_price, o.created_at as offer_date
-                FROM offers o
-                JOIN demands d ON o.demand_id = d.id
-                JOIN categories c ON d.category_id = c.id
-                JOIN locations l ON d.location_id = l.id
-                WHERE o.user_id = :user_id AND o.status = 'pending'
-                ORDER BY o.created_at DESC";
-    } elseif ($activeTab === 'accepted') {
-        $sql = "SELECT d.*, c.name as category_name, l.city, l.district, l.neighborhood, o.price as my_offer_price, o.created_at as offer_date
-                FROM offers o
-                JOIN demands d ON o.demand_id = d.id
-                JOIN categories c ON d.category_id = c.id
-                JOIN locations l ON d.location_id = l.id
-                WHERE o.user_id = :user_id AND o.status = 'accepted'
-                ORDER BY o.created_at DESC";
-    } elseif ($activeTab === 'rejected') {
-        $sql = "SELECT d.*, c.name as category_name, l.city, l.district, l.neighborhood, o.price as my_offer_price, o.created_at as offer_date
-                FROM offers o
-                JOIN demands d ON o.demand_id = d.id
-                JOIN categories c ON d.category_id = c.id
-                JOIN locations l ON d.location_id = l.id
-                WHERE o.user_id = :user_id AND o.status = 'rejected'
-                ORDER BY o.created_at DESC";
-    }
-
-    if ($sql) {
-        $stmt = $pdo->prepare($sql);
-        $stmt->execute($params);
-        $leads = $stmt->fetchAll();
-    }
-}
-
-$pageTitle = "İş Fırsatları";
+// Header için path ayarı
 $pathPrefix = '../';
+
+// Filtreleme Parametreleri
+$search = $_GET['search'] ?? '';
+$category_id = $_GET['category_id'] ?? '';
+$city = $_GET['city'] ?? '';
+$district = $_GET['district'] ?? '';
+$min_price = $_GET['min_price'] ?? '';
+$max_price = $_GET['max_price'] ?? '';
+$sort = $_GET['sort'] ?? 'newest';
+
+// Sorgu Hazırlığı
+$where = ["d.status = 'approved' AND d.is_archived = 0"];
+$params = [];
+
+if ($search) {
+    $where[] = "(d.title LIKE ? OR c.name LIKE ?)";
+    $params[] = "%$search%";
+    $params[] = "%$search%";
+}
+if ($category_id) {
+    $where[] = "d.category_id = ?";
+    $params[] = $category_id;
+}
+if ($city) {
+    $where[] = "l.city = ?";
+    $params[] = $city;
+}
+if ($district) {
+    $where[] = "l.district = ?";
+    $params[] = $district;
+}
+if ($min_price) {
+    $where[] = "d.estimated_cost >= ?";
+    $params[] = $min_price;
+}
+if ($max_price) {
+    $where[] = "d.estimated_cost <= ?";
+    $params[] = $max_price;
+}
+
+// Sıralama
+$orderBy = "d.created_at DESC";
+if ($sort === 'price_high') {
+    $orderBy = "d.estimated_cost DESC";
+} elseif ($sort === 'price_low') {
+    $orderBy = "d.estimated_cost ASC";
+}
+
+// Sayfalama
+$page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
+$limit = 10;
+$offset = ($page - 1) * $limit;
+
+// Toplam Sayı
+$countSql = "SELECT COUNT(*) FROM demands d 
+             LEFT JOIN categories c ON d.category_id = c.id 
+             LEFT JOIN locations l ON d.location_id = l.id 
+             WHERE " . implode(" AND ", $where);
+$stmt = $pdo->prepare($countSql);
+$stmt->execute($params);
+$totalLeads = $stmt->fetchColumn();
+$totalPages = ceil($totalLeads / $limit);
+
+// Verileri Çek
+$sql = "SELECT d.*, c.name as category_name, l.city, l.district, u.first_name, u.last_name, u.is_verified,
+        (SELECT COUNT(*) FROM offers WHERE demand_id = d.id) as offer_count
+        FROM demands d
+        LEFT JOIN users u ON d.user_id = u.id
+        LEFT JOIN categories c ON d.category_id = c.id
+        LEFT JOIN locations l ON d.location_id = l.id
+        WHERE " . implode(" AND ", $where) . "
+        ORDER BY $orderBy
+        LIMIT $limit OFFSET $offset";
+
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
+$leads = $stmt->fetchAll();
+
+// Filtreler İçin Veriler
+$categories = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY name ASC")->fetchAll();
+$cities = $pdo->query("SELECT DISTINCT city FROM locations ORDER BY city ASC")->fetchAll(PDO::FETCH_COLUMN);
+$districts = [];
+if ($city) {
+    $stmt = $pdo->prepare("SELECT DISTINCT district FROM locations WHERE city = ? ORDER BY district ASC");
+    $stmt->execute([$city]);
+    $districts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+$pageTitle = "Hizmet İlanları ve İş Fırsatları";
 require_once '../includes/header.php';
 ?>
 
-<main class="max-w-7xl mx-auto px-4 py-12 min-h-[60vh]">
-    <div class="flex justify-between items-center mb-8">
-        <div>
-            <h1 class="text-3xl font-black text-slate-800">İş Fırsatları</h1>
-            <p class="text-slate-500">Uzmanlık alanınıza ve bölgenize uygun talepler.</p>
-        </div>
-        <?php if ($isSubscribed && $hasCredit): ?>
-            <span class="bg-green-100 text-green-700 px-4 py-2 rounded-lg font-bold text-sm">
-                Abonelik Aktif (Bitiş: <?= date('d.m.Y', strtotime($provider['subscription_ends_at'])) ?>)
-            </span>
-        <?php endif; ?>
-    </div>
-
-    <!-- Tabs -->
-    <div class="flex border-b border-slate-200 mb-8 overflow-x-auto">
-        <a href="?tab=new" class="px-6 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-colors <?= $activeTab === 'new' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700' ?>">
-            Teklif Bekleyenler
-        </a>
-        <a href="?tab=pending" class="px-6 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-colors <?= $activeTab === 'pending' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700' ?>">
-            Cevap Bekleyenler
-        </a>
-        <a href="?tab=accepted" class="px-6 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-colors <?= $activeTab === 'accepted' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700' ?>">
-            Kazandığım Teklifler
-        </a>
-        <a href="?tab=rejected" class="px-6 py-3 text-sm font-bold whitespace-nowrap border-b-2 transition-colors <?= $activeTab === 'rejected' ? 'border-primary text-primary' : 'border-transparent text-slate-500 hover:text-slate-700' ?>">
-            Red Edilenler
-        </a>
-    </div>
-
-    <?php if ($activeTab === 'new' && (!$isSubscribed || !$hasCredit)): ?>
-        <div class="text-center py-16 bg-slate-50 rounded-2xl border border-slate-200">
-            <div class="inline-flex items-center justify-center w-20 h-20 bg-white rounded-full mb-6 shadow-sm text-primary">
-                <span class="material-symbols-outlined text-4xl">workspace_premium</span>
-            </div>
-            <h2 class="text-2xl font-bold text-slate-800 mb-3">
-                <?php if (!$isSubscribed): ?>
-                    Abonelik Süreniz Doldu
-                <?php else: ?>
-                    Teklif Krediniz Tükendi
-                <?php endif; ?>
-            </h2>
-            <p class="text-slate-500 mb-8 max-w-md mx-auto leading-relaxed">
-                Yeni iş fırsatlarını görüntülemek ve teklif vermeye devam etmek için size uygun bir paket seçerek aboneliğinizi yenileyebilirsiniz. 
-                <?php if ($isSubscribed): ?>Mevcut süreniz devam ediyor ancak krediniz bittiği için yeni teklif veremiyorsunuz.<?php endif; ?>
-            </p>
-            <a href="buy-package.php" class="px-6 py-3 bg-primary text-white rounded-xl font-bold hover:bg-primary/90 transition-all">Paketleri İncele</a>
-        </div>
-    <?php elseif (empty($leads)): ?>
-        <div class="text-center py-20 bg-white rounded-2xl border border-slate-100 shadow-sm">
-            <span class="material-symbols-outlined text-5xl text-slate-300 mb-4">search_off</span>
-            <h2 class="text-xl font-bold text-slate-700 mb-2">Uygun Talep Bulunamadı</h2>
-            <p class="text-slate-500">Bu kategoride görüntülenecek talep bulunmuyor.</p>
-        </div>
-    <?php else: ?>
-        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <?php foreach ($leads as $lead): ?>
-                <?php 
-                    $isViewed = $lead['is_viewed'] ?? 0;
-                    $cardBorderClass = 'border-slate-100 hover:border-[#1a2a6b]'; // Diğer sekmeler için varsayılan
-                    
-                    if ($activeTab === 'new') {
-                        if ($isViewed) {
-                            $cardBorderClass = 'border-[#1a2a6b]'; // Görüntülendi ise lacivert
-                        } else {
-                            $cardBorderClass = 'border-green-700 border-2'; // Görüntülenmedi ise koyu yeşil ve kalın
-                        }
-                    }
-                ?>
-                
-                <?php 
-                    // Mesafe Hesapla
-                    $distance = calculateDistance($provider['latitude'], $provider['longitude'], $lead['latitude'], $lead['longitude']);
-                ?>
-
-                <div class="bg-white p-6 rounded-2xl shadow-sm border <?= $cardBorderClass ?> hover:shadow-md transition-all group relative overflow-hidden">
-                    <?php if ($activeTab === 'new' && !$isViewed): ?>
-                        <div class="absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl bg-green-700">
-                            YENİ TALEP
-                        </div>
-                    <?php elseif ($activeTab !== 'new'): ?>
-                        <div class="absolute top-0 right-0 text-white text-[10px] font-bold px-3 py-1 rounded-bl-xl 
-                            <?= $activeTab === 'accepted' ? 'bg-green-500' : 
-                               ($activeTab === 'rejected' ? 'bg-red-500' : 'bg-yellow-500') ?>">
-                            <?= $activeTab === 'accepted' ? 'KAZANDINIZ' : 
-                               ($activeTab === 'rejected' ? 'REDDEDİLDİ' : 'CEVAP BEKLİYOR') ?>
-                        </div>
-                    <?php endif; ?>
-
-                    <div class="mb-4 mt-2">
-                        <span class="px-3 py-1 bg-indigo-50 text-indigo-700 rounded-lg text-xs font-bold uppercase tracking-wider inline-block mb-2">
-                            <?= htmlspecialchars($lead['category_name']) ?>
-                        </span>
-                        <h4 class="font-bold text-slate-800 line-clamp-2 mb-1 h-12"><?= htmlspecialchars($lead['title']) ?></h4>
-                        <div class="flex items-center justify-between">
-                            <p class="text-slate-500 text-sm flex items-center gap-1">
-                                <span class="material-symbols-outlined text-sm">location_on</span>
-                                <?= htmlspecialchars($lead['city'] . ' / ' . $lead['district']) ?>
-                            </p>
-                            <?php if ($distance !== null): ?>
-                                <span class="text-xs font-bold text-slate-500 bg-slate-100 px-2 py-1 rounded flex items-center gap-1" title="Kuş uçuşu mesafe"><span class="material-symbols-outlined text-[10px]">straight</span> <?= number_format($distance, 1) ?> km</span>
-                            <?php endif; ?>
+<main class="max-w-7xl mx-auto px-6 py-8 min-h-screen">
+    <div class="flex flex-col md:flex-row gap-8">
+        <!-- Sidebar Filtre -->
+        <aside class="w-full md:w-72 flex-shrink-0">
+            <div class="bg-white dark:bg-slate-900 rounded-xl shadow-sm border border-slate-200 dark:border-slate-800 p-6 sticky top-24">
+                <h2 class="text-lg font-bold mb-6 flex items-center text-primary dark:text-white">
+                    <span class="material-symbols-outlined mr-2">filter_alt</span>
+                    Filtrele
+                </h2>
+                <form method="GET" action="leads.php" id="filterForm">
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Kelime ile Ara</label>
+                        <div class="relative">
+                            <input name="search" value="<?= htmlspecialchars($search) ?>" class="w-full pl-3 pr-10 py-2.5 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm" placeholder="Örn: Boya, Tadilat..." type="text"/>
+                            <button type="submit" class="absolute right-2 top-2.5 text-slate-400 hover:text-primary">
+                                <span class="material-symbols-outlined text-lg">search</span>
+                            </button>
                         </div>
                     </div>
-
-                    <div class="bg-slate-50 rounded-xl p-4 mb-4 border border-slate-100">
-                        <div class="flex justify-between items-center">
-                            <span class="text-xs font-bold text-slate-500 uppercase">Tarih</span>
-                            <span class="text-xs font-bold text-slate-700"><?= date('d.m.Y', strtotime($lead['created_at'])) ?></span>
-                        </div>
-                        <?php if (isset($lead['my_offer_price'])): ?>
-                            <div class="flex justify-between items-center mt-2 pt-2 border-t border-slate-200">
-                                <span class="text-xs font-bold text-slate-500 uppercase">Teklifiniz</span>
-                                <span class="text-sm font-black text-slate-800"><?= number_format($lead['my_offer_price'], 2, ',', '.') ?> ₺</span>
-                            </div>
-                        <?php endif; ?>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Hizmet Kategorisi</label>
+                        <select name="category_id" class="w-full py-2.5 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm" onchange="this.form.submit()">
+                            <option value="">Tüm Kategoriler</option>
+                            <?php foreach($categories as $cat): ?>
+                                <option value="<?= $cat['id'] ?>" <?= $category_id == $cat['id'] ? 'selected' : '' ?>><?= htmlspecialchars($cat['name']) ?></option>
+                            <?php endforeach; ?>
+                        </select>
                     </div>
-
-                    <a href="../demand-details.php?id=<?= $lead['id'] ?>" class="block w-full py-3 text-center bg-primary text-white font-bold rounded-xl hover:bg-primary/90 transition-all shadow-lg shadow-primary/20">
-                        <?= ($activeTab === 'new') ? 'Detayları Gör & Teklif Ver' : 'Detayları Gör' ?>
+                    <div class="mb-6">
+                        <label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Konum (İl/İlçe)</label>
+                        <select name="city" class="w-full py-2.5 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary mb-2 text-sm" onchange="this.form.submit()">
+                            <option value="">Tüm İller</option>
+                            <?php foreach($cities as $c): ?>
+                                <option value="<?= htmlspecialchars($c) ?>" <?= $city == $c ? 'selected' : '' ?>><?= htmlspecialchars($c) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                        <select name="district" class="w-full py-2.5 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 focus:ring-primary focus:border-primary text-sm" <?= empty($districts) ? 'disabled' : '' ?>>
+                            <option value="">Tüm İlçeler</option>
+                            <?php foreach($districts as $d): ?>
+                                <option value="<?= htmlspecialchars($d) ?>" <?= $district == $d ? 'selected' : '' ?>><?= htmlspecialchars($d) ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+                    <div class="mb-8">
+                        <label class="block text-sm font-semibold mb-2 text-slate-700 dark:text-slate-300">Bütçe Aralığı (₺)</label>
+                        <div class="flex items-center space-x-2">
+                            <input name="min_price" value="<?= htmlspecialchars($min_price) ?>" class="w-full px-3 py-2 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm" placeholder="Min" type="number"/>
+                            <span class="text-slate-400">-</span>
+                            <input name="max_price" value="<?= htmlspecialchars($max_price) ?>" class="w-full px-3 py-2 rounded-lg border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm" placeholder="Max" type="number"/>
+                        </div>
+                    </div>
+                    <button type="submit" class="w-full bg-primary text-white py-3 rounded-lg font-bold hover:bg-primary/90 transition shadow-sm mb-3">
+                        Filtreleri Uygula
+                    </button>
+                    <a href="leads.php" class="block w-full text-center text-slate-500 text-sm font-medium hover:text-primary transition">
+                        Filtreleri Temizle
                     </a>
+                </form>
+            </div>
+        </aside>
+
+        <!-- Liste -->
+        <div class="flex-grow">
+            <div class="flex justify-between items-center mb-6">
+                <h1 class="text-2xl font-bold text-primary dark:text-white">
+                    <?= $totalLeads ?> <span class="font-normal">İş Fırsatı Bulundu</span>
+                </h1>
+                <div class="flex items-center space-x-2">
+                    <span class="text-sm text-slate-500 hidden sm:inline">Sırala:</span>
+                    <select name="sort" form="filterForm" class="bg-transparent border-none text-sm font-semibold focus:ring-0 cursor-pointer text-slate-700 dark:text-slate-300" onchange="this.form.submit()">
+                        <option value="newest" <?= $sort == 'newest' ? 'selected' : '' ?>>En Yeni İlanlar</option>
+                        <option value="price_high" <?= $sort == 'price_high' ? 'selected' : '' ?>>Bütçe (Yüksekten Düşüğe)</option>
+                        <option value="price_low" <?= $sort == 'price_low' ? 'selected' : '' ?>>Bütçe (Düşükten Yükseğe)</option>
+                    </select>
                 </div>
-            <?php endforeach; ?>
+            </div>
+
+            <div class="space-y-4">
+                <?php if (empty($leads)): ?>
+                    <div class="bg-white dark:bg-slate-900 rounded-xl p-12 text-center border border-slate-200 dark:border-slate-800">
+                        <div class="inline-flex items-center justify-center w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full mb-4">
+                            <span class="material-symbols-outlined text-3xl text-slate-400">search_off</span>
+                        </div>
+                        <h3 class="text-lg font-bold text-slate-800 dark:text-white mb-2">Sonuç Bulunamadı</h3>
+                        <p class="text-slate-500">Arama kriterlerinize uygun iş fırsatı bulunamadı. Filtreleri temizleyip tekrar deneyin.</p>
+                    </div>
+                <?php else: ?>
+                    <?php foreach ($leads as $lead): ?>
+                    <div class="bg-white dark:bg-slate-900 rounded-xl p-6 shadow-sm border border-slate-200 dark:border-slate-800 hover:border-primary/50 transition-colors group relative">
+                        <div class="flex justify-between items-start mb-4">
+                            <div>
+                                <div class="flex items-center space-x-2 mb-1">
+                                    <span class="font-semibold text-slate-600 dark:text-slate-400"><?= htmlspecialchars($lead['first_name'] . ' ' . mb_substr($lead['last_name'], 0, 1) . '.') ?></span>
+                                    <?php if ($lead['is_verified']): ?>
+                                        <span class="material-symbols-outlined text-blue-500 text-sm" title="Onaylı Müşteri">verified</span>
+                                        <span class="bg-blue-50 text-blue-600 text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">ONAYLI</span>
+                                    <?php endif; ?>
+                                </div>
+                                <h3 class="text-xl font-bold text-slate-800 dark:text-white group-hover:text-primary transition-colors">
+                                    <a href="../demand-details.php?id=<?= $lead['id'] ?>"><?= htmlspecialchars($lead['title']) ?></a>
+                                </h3>
+                            </div>
+                            <div class="text-right">
+                                <span class="block text-xs text-slate-400 uppercase font-bold mb-1">Tahmini Bütçe</span>
+                                <span class="text-xl font-extrabold text-primary dark:text-white tracking-tight">
+                                    <?= $lead['estimated_cost'] > 0 ? '₺' . number_format($lead['estimated_cost'], 0, ',', '.') : 'Belirtilmemiş' ?>
+                                </span>
+                            </div>
+                        </div>
+                        <div class="flex flex-wrap items-center gap-4 mb-4 text-sm text-slate-500">
+                            <div class="flex items-center">
+                                <span class="material-symbols-outlined text-sm mr-1">schedule</span>
+                                <?= date('d.m.Y', strtotime($lead['created_at'])) ?>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="material-symbols-outlined text-sm mr-1">location_on</span>
+                                <?= htmlspecialchars($lead['city'] . ', ' . $lead['district']) ?>
+                            </div>
+                            <div class="flex items-center">
+                                <span class="material-symbols-outlined text-sm mr-1">person</span>
+                                <?= $lead['offer_count'] ?> Teklif Verildi
+                            </div>
+                        </div>
+                        
+                        <div class="flex flex-col sm:flex-row justify-between items-end sm:items-center gap-4 mt-6">
+                            <div class="flex flex-wrap gap-2">
+                                <span class="px-3 py-1 bg-slate-100 dark:bg-slate-800 rounded-full text-xs font-medium text-slate-600 dark:text-slate-300">
+                                    <?= htmlspecialchars($lead['category_name']) ?>
+                                </span>
+                            </div>
+                            <div class="flex items-center space-x-3">
+                                <button class="p-2.5 rounded-lg border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition" title="Kaydet">
+                                    <span class="material-symbols-outlined text-slate-400">bookmark_border</span>
+                                </button>
+                                <a href="../demand-details.php?id=<?= $lead['id'] ?>" class="bg-primary text-white px-8 py-2.5 rounded-lg font-bold hover:bg-primary/90 transition shadow-sm">
+                                    Teklif Ver
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </div>
+
+            <!-- Sayfalama -->
+            <?php if ($totalPages > 1): ?>
+            <div class="flex justify-center mt-10 space-x-2">
+                <?php for ($i = 1; $i <= $totalPages; $i++): ?>
+                    <a href="?page=<?= $i ?>&<?= http_build_query(array_diff_key($_GET, ['page' => ''])) ?>" class="w-10 h-10 rounded-lg flex items-center justify-center transition font-medium <?= $i === $page ? 'bg-primary text-white font-bold' : 'border border-slate-200 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800' ?>">
+                        <?= $i ?>
+                    </a>
+                <?php endfor; ?>
+            </div>
+            <?php endif; ?>
         </div>
-    <?php endif; ?>
+    </div>
 </main>
 
 <?php require_once '../includes/footer.php'; ?>

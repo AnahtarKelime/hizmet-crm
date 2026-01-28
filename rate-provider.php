@@ -61,7 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmt = $pdo->prepare("INSERT INTO reviews (offer_id, reviewer_id, reviewed_id, rating, criteria_ratings, comment) VALUES (?, ?, ?, ?, ?, ?)");
             $stmt->execute([$offerId, $userId, $job['provider_id'], $rating, $criteria, $comment]);
 
-            header("Location: demand-details.php?id=" . $job['demand_id'] . "&status=success&msg=Değerlendirmeniz+alındı");
+            header("Location: demand-details.php?id=" . $job['demand_id'] . "&status=success&msg=" . urlencode("Değerlendirmeniz alındı"));
             exit;
         } catch (Exception $e) {
             $error = "Hata oluştu: " . $e->getMessage();

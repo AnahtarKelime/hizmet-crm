@@ -62,12 +62,12 @@ try {
         <table class="w-full text-left text-sm text-slate-600">
             <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
                 <tr>
-                    <th class="px-6 py-4">ID</th>
+                    <th class="px-6 py-4 hidden md:table-cell">ID</th>
                     <th class="px-6 py-4">Hizmet Veren</th>
-                    <th class="px-6 py-4">Hizmet Alan</th>
+                    <th class="px-6 py-4 hidden xl:table-cell">Hizmet Alan</th>
                     <th class="px-6 py-4">Kategori / Talep</th>
                     <th class="px-6 py-4">Tutar</th>
-                    <th class="px-6 py-4">Tarih</th>
+                    <th class="px-6 py-4 hidden lg:table-cell">Tarih</th>
                     <th class="px-6 py-4">Durum</th>
                     <th class="px-6 py-4 text-right">İşlemler</th>
                 </tr>
@@ -80,12 +80,12 @@ try {
                 <?php else: ?>
                     <?php foreach($offers as $offer): ?>
                     <tr class="hover:bg-slate-50 transition-colors">
-                        <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $offer['id'] ?></td>
+                        <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $offer['id'] ?></td>
                         <td class="px-6 py-4">
                             <div class="font-bold text-indigo-700"><?= htmlspecialchars($offer['p_name'] . ' ' . $offer['p_surname']) ?></div>
                             <div class="text-xs text-slate-400">Uzman</div>
                         </td>
-                        <td class="px-6 py-4">
+                        <td class="px-6 py-4 hidden xl:table-cell">
                             <div class="font-medium text-slate-800"><?= htmlspecialchars($offer['c_name'] . ' ' . $offer['c_surname']) ?></div>
                             <div class="text-xs text-slate-400">Müşteri</div>
                         </td>
@@ -96,7 +96,7 @@ try {
                         <td class="px-6 py-4 font-black text-slate-800">
                             <?= number_format($offer['price'], 2, ',', '.') ?> ₺
                         </td>
-                        <td class="px-6 py-4 text-xs text-slate-500">
+                        <td class="px-6 py-4 text-xs text-slate-500 hidden lg:table-cell">
                             <?= date('d.m.Y H:i', strtotime($offer['created_at'])) ?>
                         </td>
                         <td class="px-6 py-4">

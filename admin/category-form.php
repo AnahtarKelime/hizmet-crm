@@ -9,8 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $keywords = $_POST['keywords'];
     $isActive = isset($_POST['is_active']) ? 1 : 0;
     $isFeatured = isset($_POST['is_featured']) ? 1 : 0;
+    $isLocationRequired = isset($_POST['is_location_required']) ? 1 : 0;
+    $seoTitle = $_POST['seo_title'] ?? null;
+    $seoDescription = $_POST['seo_description'] ?? null;
     $trackingHead = $_POST['tracking_code_head'] ?? null;
     $trackingBody = $_POST['tracking_code_body'] ?? null;
+    $sortOrder = $_POST['sort_order'] ?? 0;
     
     // Mevcut resmi al (eğer id varsa)
     $id = $_GET['id'] ?? null;
@@ -40,11 +44,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if ($id) {
-        $stmt = $pdo->prepare("UPDATE categories SET name=?, slug=?, icon=?, image=?, keywords=?, is_active=?, is_featured=?, tracking_code_head=?, tracking_code_body=? WHERE id=?");
-        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $trackingHead, $trackingBody, $id]);
+        $stmt = $pdo->prepare("UPDATE categories SET name=?, slug=?, icon=?, image=?, keywords=?, is_active=?, is_featured=?, is_location_required=?, seo_title=?, seo_description=?, tracking_code_head=?, tracking_code_body=?, sort_order=? WHERE id=?");
+        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $isLocationRequired, $seoTitle, $seoDescription, $trackingHead, $trackingBody, $sortOrder, $id]);
     } else {
-        $stmt = $pdo->prepare("INSERT INTO categories (name, slug, icon, image, keywords, is_active, is_featured, tracking_code_head, tracking_code_body) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $trackingHead, $trackingBody]);
+        $stmt = $pdo->prepare("INSERT INTO categories (name, slug, icon, image, keywords, is_active, is_featured, is_location_required, seo_title, seo_description, tracking_code_head, tracking_code_body, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([$name, $slug, $icon, $imagePath, $keywords, $isActive, $isFeatured, $isLocationRequired, $seoTitle, $seoDescription, $trackingHead, $trackingBody, $sortOrder]);
     }
     header("Location: categories.php");
     exit;
@@ -53,7 +57,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 require_once 'includes/header.php';
 
 $id = $_GET['id'] ?? null;
-$category = ['name' => '', 'slug' => '', 'icon' => '', 'image' => '', 'keywords' => '', 'is_active' => 1, 'is_featured' => 0, 'tracking_code_head' => '', 'tracking_code_body' => ''];
+$category = ['name' => '', 'slug' => '', 'icon' => '', 'image' => '', 'keywords' => '', 'is_active' => 1, 'is_featured' => 0, 'is_location_required' => 1, 'seo_title' => '', 'seo_description' => '', 'tracking_code_head' => '', 'tracking_code_body' => '', 'sort_order' => 0];
 
 if ($id) {
     $stmt = $pdo->prepare("SELECT * FROM categories WHERE id = ?");
@@ -81,6 +85,12 @@ if ($id) {
                 <div>
                     <label class="block text-sm font-bold text-slate-700 mb-2">URL Slug</label>
                     <input type="text" name="slug" value="<?= htmlspecialchars($category['slug']) ?>" required class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 text-slate-500">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-bold text-slate-700 mb-2">Sıralama</label>
+                    <input type="number" name="sort_order" value="<?= htmlspecialchars($category['sort_order']) ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500">
+                    <p class="text-xs text-slate-500 mt-1">Düşük sayılar önce listelenir (0, 1, 2...).</p>
                 </div>
 
                 <div>
@@ -114,6 +124,20 @@ if ($id) {
                 </div>
 
                 <div class="col-span-2 border-t border-slate-100 pt-6 mt-2">
+                    <h3 class="text-lg font-bold text-slate-800 mb-4">SEO Ayarları</h3>
+                    <div class="grid grid-cols-1 gap-6">
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">SEO Başlığı (Title)</label>
+                            <input type="text" name="seo_title" value="<?= htmlspecialchars($category['seo_title'] ?? '') ?>" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500" placeholder="Örn: İstanbul Ev Temizliği Fiyatları - En İyi Teklifler">
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-slate-700 mb-2">SEO Açıklaması (Description)</label>
+                            <textarea name="seo_description" rows="2" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500"><?= htmlspecialchars($category['seo_description'] ?? '') ?></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-span-2 border-t border-slate-100 pt-6 mt-2">
                     <h3 class="text-lg font-bold text-slate-800 mb-4">Takip ve Analiz Kodları</h3>
                     <div class="grid grid-cols-1 gap-6">
                         <div>
@@ -126,7 +150,7 @@ if ($id) {
                         <div>
                             <label class="block text-sm font-bold text-slate-700 mb-2">
                                 &lt;body&gt; Kodları
-                                <span class="block text-xs font-normal text-slate-500 mt-1">Google Tag Manager (noscript) vb. body başlangıcına eklenecek kodlar.</span>
+                                <span class="block text-xs font-normal text-slate-500 mt-1">Bu kategoriye özel ekstra takip kodları (Pixel vb.) için. (Genel GA4 olayları otomatik gönderilir, buraya eklemenize gerek yoktur.)</span>
                             </label>
                             <textarea name="tracking_code_body" rows="4" class="w-full rounded-lg border-slate-300 focus:border-indigo-500 focus:ring-indigo-500 font-mono text-xs placeholder:text-slate-300" placeholder="<noscript>...</noscript>"><?= htmlspecialchars($category['tracking_code_body'] ?? '') ?></textarea>
                         </div>
@@ -134,7 +158,7 @@ if ($id) {
                 </div>
 
                 <div class="col-span-2">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
                         <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
                             <input type="checkbox" name="is_active" value="1" <?= $category['is_active'] ? 'checked' : '' ?> class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
                             <div>
@@ -147,6 +171,13 @@ if ($id) {
                             <div>
                                 <span class="block font-bold text-slate-700">Anasayfada Göster</span>
                                 <span class="text-xs text-slate-500">Bu hizmet anasayfadaki "Popüler Kategoriler" alanında listelensin.</span>
+                            </div>
+                        </label>
+                        <label class="flex items-center gap-3 p-4 border border-slate-200 rounded-lg cursor-pointer hover:bg-slate-50">
+                            <input type="checkbox" name="is_location_required" value="1" <?= $category['is_location_required'] ? 'checked' : '' ?> class="w-5 h-5 text-indigo-600 rounded focus:ring-indigo-500">
+                            <div>
+                                <span class="block font-bold text-slate-700">Konum Zorunlu</span>
+                                <span class="text-xs text-slate-500">Talep oluşturulurken kullanıcıdan konum bilgisi istensin.</span>
                             </div>
                         </label>
                     </div>

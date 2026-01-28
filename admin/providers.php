@@ -111,12 +111,12 @@ $providers = $stmt->fetchAll();
     <table class="w-full text-left text-sm text-slate-600">
         <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
             <tr>
-                <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4 hidden md:table-cell">ID</th>
                 <th class="px-6 py-4">İşletme / Ad Soyad</th>
                 <th class="px-6 py-4">İletişim</th>
-                <th class="px-6 py-4">Abonelik</th>
+                <th class="px-6 py-4 hidden xl:table-cell">Abonelik</th>
                 <th class="px-6 py-4">Başvuru Durumu</th>
-                <th class="px-6 py-4">Kayıt Tarihi</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Kayıt Tarihi</th>
                 <th class="px-6 py-4 text-right">İşlemler</th>
             </tr>
         </thead>
@@ -128,7 +128,7 @@ $providers = $stmt->fetchAll();
             <?php else: ?>
                 <?php foreach($providers as $provider): ?>
                 <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $provider['id'] ?></td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $provider['id'] ?></td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-800"><?= htmlspecialchars($provider['business_name'] ?: $provider['first_name'] . ' ' . $provider['last_name']) ?></div>
                         <?php if($provider['business_name']): ?>
@@ -139,7 +139,7 @@ $providers = $stmt->fetchAll();
                         <div class="text-slate-700"><?= htmlspecialchars($provider['email']) ?></div>
                         <div class="text-xs text-slate-400"><?= htmlspecialchars($provider['phone']) ?></div>
                     </td>
-                    <td class="px-6 py-4">
+                    <td class="px-6 py-4 hidden xl:table-cell">
                         <?php if($provider['subscription_type'] === 'premium'): ?>
                             <span class="px-2 py-1 rounded text-xs font-bold bg-purple-100 text-purple-700 flex items-center gap-1 w-fit">
                                 <span class="material-symbols-outlined text-[14px]">diamond</span> Premium
@@ -163,7 +163,7 @@ $providers = $stmt->fetchAll();
                             <?= $statusLabel[$provider['application_status']] ?? $provider['application_status'] ?>
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-xs text-slate-500">
+                    <td class="px-6 py-4 text-xs text-slate-500 hidden lg:table-cell">
                         <?= date('d.m.Y', strtotime($provider['created_at'])) ?>
                     </td>
                     <td class="px-6 py-4 text-right space-x-2">

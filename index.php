@@ -3,18 +3,33 @@ require_once 'config/db.php';
 
 // Popüler kategorileri veritabanından çek
 $popularCategories = [];
-try {
-    // Önce öne çıkanları çek
-    $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 AND is_featured = 1 ORDER BY id ASC LIMIT 12");
-    $popularCategories = $stmt->fetchAll();
+$popularCategories = $cache->get('popular_categories');
 
-    // Eğer öne çıkan yoksa, varsayılan olarak ilk 14'ü çek
-    if (empty($popularCategories)) {
-        $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY id ASC LIMIT 12");
+if ($popularCategories === null) {
+    try {
+        // Önce öne çıkanları çek
+        $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 AND is_featured = 1 ORDER BY sort_order ASC, id ASC LIMIT 12");
         $popularCategories = $stmt->fetchAll();
+
+        // Eğer öne çıkan yoksa, varsayılan olarak ilk 14'ü çek
+        if (empty($popularCategories)) {
+            $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY sort_order ASC, id ASC LIMIT 12");
+            $popularCategories = $stmt->fetchAll();
+        }
+        
+        $cache->set('popular_categories', $popularCategories, 3600); // 1 saat cache
+    } catch (PDOException $e) {
+        // sort_order sütunu yoksa eski sorguyu dene (Fallback)
+        try {
+            $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 AND is_featured = 1 ORDER BY id ASC LIMIT 12");
+            $popularCategories = $stmt->fetchAll();
+            
+            if (empty($popularCategories)) {
+                $stmt = $pdo->query("SELECT * FROM categories WHERE is_active = 1 ORDER BY id ASC LIMIT 12");
+                $popularCategories = $stmt->fetchAll();
+            }
+        } catch (PDOException $e2) {}
     }
-} catch (PDOException $e) {
-    // Hata durumunda boş dizi kalır
 }
 
 // Kullanıcı giriş yapmışsa kayıtlı konumunu çek
@@ -76,7 +91,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
                 Aradığın hizmeti bul.
             </h2>
             <p class="text-lg md:text-2xl text-white/95 mb-10 font-semibold">
-                Binlerce güvenilir uzman <span class="text-accent underline decoration-4 underline-offset-8"><?= htmlspecialchars($siteTitle) ?></span> güvencesiyle yanınızda.
+                Binlerce güvenilir uzman <span class="text-accent underline decoration-4 underline-offset-8">iyi teklif</span> güvencesiyle yanınızda.
             </p>
             <!-- Arama Formu Alanı -->
             <div class="bg-white/95 dark:bg-slate-900/95 backdrop-blur-md p-2 md:p-3 rounded-2xl shadow-[0_35px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col md:flex-row items-stretch gap-2 border border-white/20 dark:border-slate-700 relative z-20 ring-1 ring-white/40 dark:ring-slate-800">
@@ -126,7 +141,7 @@ $googleGeoApiKey = !empty($siteSettings['google_maps_geo_api_key']) ? $siteSetti
             </div>
             <div class="flex items-center gap-3">
                 <span class="material-symbols-outlined text-2xl">shield</span>
-                <span><?= htmlspecialchars($siteTitle) ?> İyi Teklif Garantisi</span>
+                <span>İyi Teklif Garantisi</span>
             </div>
         </div>
     </div>

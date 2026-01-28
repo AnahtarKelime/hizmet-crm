@@ -1,0 +1,19 @@
+{
+    "name": "iyiteklif/crm",
+    "description": "Hizmet CRM",
+    "type": "project",
+    "require": {
+        "php": "^7.3",
+        "minishlink/web-push": "^6.0"
+    },
+    "authors": [
+        {
+            "name": "Admin"
+        }
+    ],
+    "config": {
+        "platform": {
+            "php": "7.3"
+        }
+    }
+}

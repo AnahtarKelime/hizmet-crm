@@ -105,12 +105,12 @@ require_once 'includes/header.php';
     <table class="w-full text-left text-sm text-slate-600">
         <thead class="bg-slate-50 text-slate-800 font-bold border-b border-slate-200">
             <tr>
-                <th class="px-6 py-4">ID</th>
+                <th class="px-6 py-4 hidden md:table-cell">ID</th>
                 <th class="px-6 py-4">Kullanıcı</th>
                 <th class="px-6 py-4">İşlem Tipi</th>
-                <th class="px-6 py-4">Açıklama</th>
+                <th class="px-6 py-4 hidden xl:table-cell">Açıklama</th>
                 <th class="px-6 py-4">Tutar</th>
-                <th class="px-6 py-4">Tarih</th>
+                <th class="px-6 py-4 hidden lg:table-cell">Tarih</th>
                 <th class="px-6 py-4">Durum</th>
                 <th class="px-6 py-4 text-right">İşlem</th>
             </tr>
@@ -123,7 +123,7 @@ require_once 'includes/header.php';
             <?php else: ?>
                 <?php foreach($payments as $payment): ?>
                 <tr class="hover:bg-slate-50 transition-colors">
-                    <td class="px-6 py-4 font-mono text-xs text-slate-400">#<?= $payment['id'] ?></td>
+                    <td class="px-6 py-4 font-mono text-xs text-slate-400 hidden md:table-cell">#<?= $payment['id'] ?></td>
                     <td class="px-6 py-4">
                         <div class="font-bold text-slate-800"><?= htmlspecialchars($payment['first_name'] . ' ' . $payment['last_name']) ?></div>
                         <div class="text-xs text-slate-500"><?= htmlspecialchars($payment['email']) ?></div>
@@ -142,13 +142,13 @@ require_once 'includes/header.php';
                             <?= $typeInfo['label'] ?>
                         </span>
                     </td>
-                    <td class="px-6 py-4 text-slate-700">
+                    <td class="px-6 py-4 text-slate-700 hidden xl:table-cell">
                         <?= htmlspecialchars($payment['description']) ?>
                     </td>
                     <td class="px-6 py-4 font-bold text-slate-800">
                         <?= number_format($payment['amount'], 2, ',', '.') ?> ₺
                     </td>
-                    <td class="px-6 py-4 text-xs text-slate-500">
+                    <td class="px-6 py-4 text-xs text-slate-500 hidden lg:table-cell">
                         <?= date('d.m.Y H:i', strtotime($payment['created_at'])) ?>
                     </td>
                     <td class="px-6 py-4">
